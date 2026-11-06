@@ -39,7 +39,22 @@ powertoys:
     remapKeysToText:
       inProcess: []
     remapShortcuts:
-      global: []
+      # Sway-style bindings with mod = Win. Shortcut remaps see the keys after
+      # the key remaps above, so this Win is the physical Left Alt key.
+      global:
+        - originalKeys: "91;16;81"   # Win + Shift + Q
+          newRemapKeys: "164;115"    # -> Alt + F4 (close window)
+        - originalKeys: "91;68"      # Win + D
+          newRemapKeys: "91;164;32"  # -> Win + Alt + Space (Command Palette hotkey)
+        - originalKeys: "91;16;70"   # Win + Shift + F -> new Firefox window
+          newRemapKeys: ""
+          operationType: 1           # run program
+          runProgramFilePath: 'C:\Program Files\Mozilla Firefox\firefox.exe'
+          runProgramArgs: ""
+          runProgramStartInDir: ""
+          runProgramElevationLevel: 0        # same as PowerToys
+          runProgramAlreadyRunningAction: 1  # start another, do not just focus
+          runProgramStartWindowType: 0       # normal window
       appSpecific: []
     remapShortcutsToText:
       global: []

@@ -450,7 +450,10 @@ The Keyboard Manager remaps are managed from this repo:
 PowerToys' own file format (key remaps, shortcut remaps, app-specific and
 to-text remaps). By default it holds the old sway
 `xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`: Caps Lock <-> Esc and
-Left Alt <-> Left Win.
+Left Alt <-> Left Win. It also has sway-style shortcuts with mod = Win (the
+physical Left Alt key): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
+opens the Command Palette (sends its Win+Alt+Space hotkey) and `mod+Shift+F`
+starts a new Firefox window.
 
 On every apply `run_after_40-powertoys-keyboard` writes those sections into
 `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json` (the active
