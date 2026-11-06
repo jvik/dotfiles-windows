@@ -78,7 +78,7 @@ packages:
         note: "vault vimrc deployed when data obsidianVault is set"
 
       # --- optional, not part of the agreed set (ids verified; uncomment to use) ---
-      # - id: Mozilla.Firefox            # browser (no arkenfox/policies management)
+      # - id: Mozilla.Firefox            # browser; installed by IT here. user.js: run_after_50-firefox-userjs
       # - id: Giorgiotani.Peazip         # replaces the PeaZip flatpak; or 7zip.7zip
       # - id: hluk.CopyQ                 # or the built-in Win+V clipboard history
       # - id: ShareX.ShareX              # screenshots/recording beyond Snipping Tool

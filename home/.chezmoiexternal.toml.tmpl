@@ -16,3 +16,13 @@
     clone.args = ["--depth", "1"]
     pull.args = ["--ff-only"]
 {{- end }}
+{{- if .isWindows }}
+# arkenfox user.js, pinned to the v144.0 release commit. Not read by Firefox
+# from here: run_after_50-firefox-userjs appends the personal overrides and
+# writes the result into the default profile. To update, change the commit in
+# the url and the checksum together (sha256 of the raw file).
+["AppData/Local/arkenfox/user.js"]
+    type = "file"
+    url = "https://raw.githubusercontent.com/arkenfox/user.js/bb45863be796d331717e2b5d6e490f0d3e3cf93f/user.js"
+    checksum.sha256 = "e4ab33c6914899175cf7035e0e57a2d7f08ac887d8f957f1199e7e49bbe7e33e"
+{{- end }}

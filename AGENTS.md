@@ -73,6 +73,15 @@ ext4). The goal is safe, minimal, and idempotent changes.
   remap sections of the active profile file and keeps other fields. PowerToys'
   `settings.json` files are runner-owned: read them, never write them.
 
+### Firefox
+
+- Only `user.js` in the default profile is managed: arkenfox (a pinned
+  `.chezmoiexternal` file with a sha256 checksum; change commit and checksum
+  together) plus `home/.chezmoitemplates/firefox-user-overrides.js`, written by
+  `run_after_50-firefox-userjs`. No enterprise policies (`policies.json`,
+  `HKLM\Software\Policies`): they need admin, and IT's policies would make
+  Firefox ignore them. Never rewrite `profiles.ini`.
+
 ### Packages: one owner per tool
 
 Never install the same tool from two places (PATH shadowing).

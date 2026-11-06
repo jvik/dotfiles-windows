@@ -31,10 +31,10 @@ home/
   .chezmoidata/packages.yaml   winget / apt / brew package lists
   .chezmoidata/powertoys.yaml  PowerToys Keyboard Manager remaps
   .chezmoiignore          which targets each side skips (isWindows / isWSL / features)
-  .chezmoiexternal.toml.tmpl   tpm (tmux plugin manager), WSL only
+  .chezmoiexternal.toml.tmpl   tpm (tmux plugin manager, WSL), arkenfox user.js (Windows)
   .chezmoiscripts/windows/*.ps1.tmpl   Windows install/check scripts
   .chezmoiscripts/linux/*.sh.tmpl      WSL provisioning scripts
-  .chezmoitemplates/      Claude settings defaults, shared skill, obsidian.vimrc
+  .chezmoitemplates/      Claude settings defaults, shared skill, obsidian.vimrc, Firefox overrides
   AppData/Roaming/        %APPDATA% (topgrade.toml)
   dot_config/ dot_local/ dot_claude/ dot_agents/ dot_gitconfig.tmpl ...
 ```
@@ -45,11 +45,11 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | --- | --- | --- |
 | `.gitconfig`, `.config/git/` (ignore, personal include, allowed_signers) | yes | yes |
 | `.claude/settings.json` (merged), `.claude/skills/`, `.agents/skills/` | yes | yes |
-| `.wezterm.lua`, `.wslconfig`, `AppData/Roaming/topgrade.toml` | yes | - |
+| `.wezterm.lua`, `.wslconfig`, `AppData/Roaming/topgrade.toml`, `AppData/Local/arkenfox/user.js` | yes | - |
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -214,7 +214,8 @@ prints a retry command per package). chezmoi does not re-run it until the
 list changes, so run those commands by hand.
 
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
-the ssh-agent check, the PowerToys remaps and the Obsidian vimrc copy.
+the ssh-agent check, the PowerToys remaps, the Obsidian vimrc copy and the
+Firefox user.js.
 
 ---
 
@@ -468,6 +469,37 @@ then copies `home/.chezmoitemplates/obsidian.vimrc` to `<vault>\.obsidian.vimrc`
 when it differs (backup `.bak`). It is read by the "Vimrc Support" community
 plugin with Settings > Editor > Vim key bindings on.
 
+## Firefox (arkenfox)
+
+Firefox itself is installed by IT. The repo manages only `user.js` in the
+default profile, which needs no admin rights and no enterprise policies:
+chezmoi downloads arkenfox `user.js` pinned to a release commit (with a
+sha256 check, `.chezmoiexternal.toml.tmpl`) to
+`%LOCALAPPDATA%\arkenfox\user.js`, and on every apply
+`run_after_50-firefox-userjs` appends
+`home/.chezmoitemplates/firefox-user-overrides.js` and writes the result to
+the `Default=` profile of each `[Install...]` section in
+`%APPDATA%\Mozilla\Firefox\profiles.ini` when it differs (backup
+`user.js.chezmoi.bak`). Firefox applies it on its next start. Settings made in
+the Firefox UI that user.js also sets are reset on every start, so change the
+overrides file instead.
+
+The overrides also carry the pref equivalents of the Linux repo's
+`policies.json` (Firefox Home without widgets/stories, no default-browser
+check, no onboarding). Policy-only parts are done once by hand: install
+uBlock Origin and Bitwarden from addons.mozilla.org (Firefox Sync brings them
+to the next machine), restore the uBlock settings from a backup, and add the
+search engine in Settings > Search. IT's policies (`about:policies`) win over
+user.js.
+
+A pref removed from the overrides stays in the profile's `prefs.js`: close
+Firefox and run arkenfox's `prefsCleaner.bat` in the profile folder. To move
+to a newer arkenfox release, change the commit and checksum in
+`.chezmoiexternal.toml.tmpl` together. arkenfox clears cookies when Firefox
+closes; allow the sites to keep under Settings > Privacy & Security > Cookies
+and Site Data > Manage Exceptions, or set the override that is commented out
+in the overrides file.
+
 ## Docker (WSL, `features.docker`)
 
 Docker Engine (docker-ce, buildx and compose plugins) from Docker's own apt
@@ -567,9 +599,11 @@ The shell is fish; see [home/dot_config/fish/README.md](home/dot_config/fish/REA
 * Hardware fixes: Thunderbolt dock reset, a2dp toggle, webcam (cameractrls),
   battery checks, printers, the ROCm Ollama compose setup.
 * Flatpaks, mimeapps, teams-for-linux, VS Code `argv.json` files.
-* Personal apps on the work machine: Signal, Firefox hardening
-  (arkenfox/policies), VLC, Plexamp, Vesktop, Mullvad, Jotta, LibreOffice,
-  Ollama.
+* Personal apps on the work machine: Signal, VLC, Plexamp, Vesktop, Mullvad,
+  Jotta, LibreOffice, Ollama.
+* Firefox enterprise policies (`policies.json`, needs admin and is ignored
+  when IT sets policies) and the fixed `main` profile in `profiles.ini`.
+  arkenfox and the overrides are kept, see [Firefox](#firefox-arkenfox).
 * `vuln-scan` (documented in the old readme, never in the repo).
 
 ---
