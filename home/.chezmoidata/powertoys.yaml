@@ -55,6 +55,15 @@ powertoys:
           runProgramElevationLevel: 0        # same as PowerToys
           runProgramAlreadyRunningAction: 1  # start another, do not just focus
           runProgramStartWindowType: 0       # normal window
+        - originalKeys: "91;13"      # Win + Enter -> new WezTerm window
+          newRemapKeys: ""
+          operationType: 1           # run program
+          runProgramFilePath: 'C:\Program Files\WezTerm\wezterm-gui.exe'
+          runProgramArgs: ""
+          runProgramStartInDir: ""
+          runProgramElevationLevel: 0        # same as PowerToys
+          runProgramAlreadyRunningAction: 1  # start another, do not just focus
+          runProgramStartWindowType: 0       # normal window
       appSpecific: []
     remapShortcutsToText:
       global: []
