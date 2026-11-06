@@ -29,6 +29,7 @@ Everything at the repo root is repo-only and never deployed: this README,
 home/
   .chezmoi.yaml.tmpl      config template; the ONLY file that looks at the OS
   .chezmoidata/packages.yaml   winget / apt / brew package lists
+  .chezmoidata/powertoys.yaml  PowerToys Keyboard Manager remaps
   .chezmoiignore          which targets each side skips (isWindows / isWSL / features)
   .chezmoiexternal.toml.tmpl   tpm (tmux plugin manager), WSL only
   .chezmoiscripts/windows/*.ps1.tmpl   Windows install/check scripts
@@ -441,16 +442,24 @@ repositories and worktrees in the WSL home (e.g. `~/src`), not on `/mnt/c`.
 
 ## PowerToys remaps (`features.powertoys`)
 
-The old sway `xkb_options "caps:swapescape,altwin:swap_lalt_lwin"` becomes four
-PowerToys Keyboard Manager remaps: Caps Lock <-> Esc and Left Alt <-> Left Win.
+The Keyboard Manager remaps are managed from this repo:
+`home/.chezmoidata/powertoys.yaml` (`powertoys.keyboardManager`) lists them in
+PowerToys' own file format (key remaps, shortcut remaps, app-specific and
+to-text remaps). By default it holds the old sway
+`xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`: Caps Lock <-> Esc and
+Left Alt <-> Left Win.
 
-PowerToys owns its settings files, so `run_after_40-powertoys-keyboard`
-**merges** on every apply instead of managing a file: once PowerToys has
-created `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json`, it
-adds the missing remaps (backup first) and leaves keys you remapped to
-something else alone. Before that, and on any surprise, it prints the manual
-steps: PowerToys Settings > Keyboard Manager > enable > Remap a key. After a
-change, restart PowerToys (or toggle Keyboard Manager).
+On every apply `run_after_40-powertoys-keyboard` writes those sections into
+`%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json` (the active
+profile) when they differ, creating the file if PowerToys has not yet, and
+tells a running Keyboard Manager to reload. Other fields in the file are kept.
+The repo wins: remaps made in the PowerToys editor are replaced on the next
+apply (the previous file is kept as `default.json.chezmoi.bak`), so to keep
+one, copy its entry from the file into `powertoys.yaml`.
+
+The script only reads PowerToys' `settings.json` and warns when Keyboard
+Manager is disabled or PowerToys does not run at startup (the remaps only work
+while PowerToys runs); turn those on in PowerToys Settings.
 
 ## Obsidian
 

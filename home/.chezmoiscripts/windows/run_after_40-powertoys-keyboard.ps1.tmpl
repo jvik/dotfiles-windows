@@ -1,88 +1,124 @@
 {{- if and .isWindows .features.powertoys -}}
 # chezmoi: run_after_40-powertoys-keyboard (runs on every apply)
 #
-# Carries the old sway keyboard habits over to Windows with PowerToys Keyboard
-# Manager. Old sway config:
-#     xkb_options "caps:swapescape,altwin:swap_lalt_lwin"
-# i.e. two single-key SWAPS:
-#     Caps Lock  <-> Escape
-#     Left Alt   <-> Left Windows
+# Makes PowerToys Keyboard Manager use the remaps declared in
+# home/.chezmoidata/powertoys.yaml (powertoys.keyboardManager). The repo is the
+# source of truth: on every apply the four remap sections of
+#   %LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\<active profile>.json
+# are replaced by the declared ones when they differ. Remaps made in the
+# PowerToys editor are therefore undone; copy them into the data file instead.
 #
-# Why not a chezmoi-managed file: PowerToys owns
-#   %LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json
-# (its editor rewrites the whole file, and the schema grows between releases),
-# and settings.json is rewritten by the PowerToys runner. Replacing either from
-# chezmoi would either be clobbered or drop fields PowerToys added. PowerToys'
-# DSC module only exposes module settings, not the remap tables.
+# Why a script and not a chezmoi-managed file: the remap file may hold other
+# top-level fields PowerToys adds in later releases, and those are kept. Only
+# the remap sections are owned here. settings.json files belong to the
+# PowerToys runner and are only read (for the enabled/startup warnings).
 #
-# So this script MERGES instead:
-#   - only if PowerToys has already created default.json (never invents the
-#     file or its schema),
-#   - adds only the four missing remaps to remapKeys.inProcess and keeps every
-#     other entry and field as-is,
-#   - leaves the file alone if any of the four source keys is already mapped to
-#     something else (your UI choice wins; it says so),
-#   - backs the file up before writing, writes UTF-8 without BOM.
-# In every other situation it prints the manual steps. It never fails the
-# apply. Set features.powertoys = false in the chezmoi config to opt out.
+# The file is created when missing (PowerToys does not create it until the
+# editor first saves), so this works before PowerToys has ever been started.
+# After a write, the Keyboard Manager engine is told to reload through the
+# same named event the PowerToys editor signals after saving.
 #
-# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+# It never fails the apply. Set features.powertoys = false in the chezmoi
+# config to opt out (the remap file is then left as it is).
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible. The data is
+# embedded base64-encoded because remapKeysToText may contain non-ASCII text.
 
 $ErrorActionPreference = 'Stop'
 
-# Virtual-key codes as Keyboard Manager stores them (decimal strings).
-#   VK_CAPITAL = 20, VK_ESCAPE = 27, VK_LMENU (Left Alt) = 164, VK_LWIN = 91
-$wanted = @(
-    @{ From = '20';  To = '27';  Label = 'Caps Lock -> Esc' },
-    @{ From = '27';  To = '20';  Label = 'Esc -> Caps Lock' },
-    @{ From = '164'; To = '91';  Label = 'Alt (Left) -> Win (Left)' },
-    @{ From = '91';  To = '164'; Label = 'Win (Left) -> Alt (Left)' }
-)
+# Windows PowerShell 5.1 serializes arrays that carry ETS type data as
+# {"value":[...],"Count":n}; dropping the System.Array type data avoids it.
+# Done first so the comparisons below serialize the same way as the write.
+if ($PSVersionTable.PSVersion.Major -lt 6) {
+    Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
+}
+
+$desiredB64 = '{{ .powertoys.keyboardManager | toJson | b64enc }}'
+
+# Top-level sections of the remap file that this script owns.
+$managedSections = @('remapKeys', 'remapKeysToText', 'remapShortcuts', 'remapShortcutsToText')
+
+# Signalled by the PowerToys editor after it saves; the engine then reloads.
+$reloadEventName = 'PowerToys_KeyboardManager_Event_Settings'
 
 function Write-Info([string]$Message) { Write-Host "[powertoys] $Message" }
 
-function Show-ManualSteps([string]$Reason) {
-    Write-Warning "[powertoys] $Reason"
-    Write-Host '[powertoys] Set the remaps by hand (one time; PowerToys keeps them):'
-    Write-Host '[powertoys]   1. Start PowerToys (winget id Microsoft.PowerToys) and open PowerToys Settings.'
-    Write-Host '[powertoys]   2. Keyboard Manager -> turn "Enable Keyboard Manager" on.'
-    Write-Host '[powertoys]   3. "Remap a key" -> add these four rows, then OK:'
-    foreach ($w in $wanted) { Write-Host ("[powertoys]        {0}" -f $w.Label) }
-    Write-Host '[powertoys]      (Alt (Left) / Win (Left) are the left-hand variants in the key list;'
-    Write-Host '[powertoys]       accept the "unassigned key" warning, the pairs are swaps.)'
-    Write-Host '[powertoys]   4. Optional: run chezmoi apply again; this check then just reports OK.'
+# Returns a copy with object properties sorted by name at every level, so two
+# files that differ only in key order compare equal.
+function ConvertTo-SortedObject($Value) {
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        $sorted = [ordered]@{}
+        foreach ($p in ($Value.PSObject.Properties | Sort-Object Name)) {
+            $sorted[$p.Name] = ConvertTo-SortedObject $p.Value
+        }
+        return New-Object PSObject -Property $sorted
+    }
+    if ($Value -is [System.Array]) {
+        $items = @()
+        foreach ($item in $Value) { $items += ,(ConvertTo-SortedObject $item) }
+        return ,$items
+    }
+    return $Value
 }
 
-$ptRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys'
-$kbmDir = Join-Path $ptRoot 'Keyboard Manager'
-
-try {
-    if (-not (Test-Path -LiteralPath $ptRoot -PathType Container)) {
-        Show-ManualSteps 'PowerToys has not been run yet for this user (no settings folder).'
-        exit 0
+# Canonical JSON of just the managed sections of a remap file object.
+function Get-ManagedSectionsJson($FileObject) {
+    $sections = [ordered]@{}
+    foreach ($name in $managedSections) {
+        $prop = $FileObject.PSObject.Properties[$name]
+        if ($null -ne $prop) { $sections[$name] = $prop.Value } else { $sections[$name] = $null }
     }
+    return (ConvertTo-SortedObject (New-Object PSObject -Property $sections)) | ConvertTo-Json -Depth 32 -Compress
+}
 
-    # Is the module enabled? Read-only: settings.json belongs to the runner.
-    $globalSettings = Join-Path $ptRoot 'settings.json'
-    if (Test-Path -LiteralPath $globalSettings -PathType Leaf) {
-        try {
-            $gs = [System.IO.File]::ReadAllText($globalSettings) | ConvertFrom-Json
-            $enabledProp = $null
-            if ($gs.enabled) { $enabledProp = $gs.enabled.PSObject.Properties['Keyboard Manager'] }
-            if (($null -ne $enabledProp) -and (-not [bool]$enabledProp.Value)) {
-                Write-Warning '[powertoys] Keyboard Manager is DISABLED. Enable it in PowerToys Settings > Keyboard Manager (not changed automatically: PowerToys overwrites settings.json).'
+# PowerToys reads key codes with GetNamedString and silently skips an entry
+# whose code is a JSON number, so an unquoted YAML code is turned into text.
+function Repair-KeyCodeTypes($Sections) {
+    foreach ($name in $managedSections) {
+        foreach ($list in $Sections.$name.PSObject.Properties) {
+            foreach ($entry in @($list.Value)) {
+                if ($null -eq $entry) { continue }
+                foreach ($field in @('originalKeys', 'newRemapKeys')) {
+                    $prop = $entry.PSObject.Properties[$field]
+                    if (($null -ne $prop) -and -not ($prop.Value -is [string])) { $prop.Value = [string]$prop.Value }
+                }
             }
-        } catch {
-            Write-Info "Could not read $globalSettings ($($_.Exception.Message)); skipping the enabled check."
         }
     }
+}
 
-    # Which remap profile is active (normally "default").
+function Read-JsonFile([string]$Path) {
+    return [System.IO.File]::ReadAllText($Path) | ConvertFrom-Json
+}
+
+# Read-only checks of runner-owned settings: warn, never change them.
+function Test-PowerToysSettings([string]$PtRoot) {
+    $globalSettings = Join-Path $PtRoot 'settings.json'
+    if (-not (Test-Path -LiteralPath $globalSettings -PathType Leaf)) { return }
+    try {
+        $gs = Read-JsonFile $globalSettings
+        $enabledProp = $null
+        if ($gs.enabled) { $enabledProp = $gs.enabled.PSObject.Properties['Keyboard Manager'] }
+        if (($null -ne $enabledProp) -and (-not [bool]$enabledProp.Value)) {
+            Write-Warning '[powertoys] Keyboard Manager is DISABLED: enable it in PowerToys Settings > Keyboard Manager.'
+        }
+        $startupProp = $gs.PSObject.Properties['startup']
+        if (($null -ne $startupProp) -and (-not [bool]$startupProp.Value)) {
+            Write-Warning '[powertoys] PowerToys does not start at login, so the remaps are gone after a reboot: turn on PowerToys Settings > General > Run at startup.'
+        }
+    } catch {
+        Write-Info "Could not read $globalSettings ($($_.Exception.Message)); skipping the settings checks."
+    }
+}
+
+# The remap file of the active profile (normally "default").
+function Get-RemapFilePath([string]$KbmDir) {
     $profileName = 'default'
-    $kbmSettings = Join-Path $kbmDir 'settings.json'
+    $kbmSettings = Join-Path $KbmDir 'settings.json'
     if (Test-Path -LiteralPath $kbmSettings -PathType Leaf) {
         try {
-            $ks = [System.IO.File]::ReadAllText($kbmSettings) | ConvertFrom-Json
+            $ks = Read-JsonFile $kbmSettings
             if ($ks.properties -and $ks.properties.activeConfiguration -and $ks.properties.activeConfiguration.value) {
                 $profileName = [string]$ks.properties.activeConfiguration.value
             }
@@ -90,85 +126,74 @@ try {
             $profileName = 'default'
         }
     }
-    $remapFile = Join-Path $kbmDir ($profileName + '.json')
+    return Join-Path $KbmDir ($profileName + '.json')
+}
 
-    if (-not (Test-Path -LiteralPath $remapFile -PathType Leaf)) {
-        Show-ManualSteps "No remap file yet ($remapFile); PowerToys creates it the first time Keyboard Manager saves."
-        exit 0
+function Send-ReloadSignal {
+    try {
+        $handle = [System.Threading.EventWaitHandle]::OpenExisting($reloadEventName)
+        [void]$handle.Set()
+        $handle.Dispose()
+        Write-Info 'Told the running Keyboard Manager to reload.'
+    } catch [System.Threading.WaitHandleCannotBeOpenedException] {
+        Write-Info 'Keyboard Manager is not running; it loads the remaps when PowerToys starts.'
+    } catch {
+        Write-Warning "[powertoys] Could not signal Keyboard Manager ($($_.Exception.Message)); restart PowerToys to load the remaps."
     }
+}
 
-    $raw = [System.IO.File]::ReadAllText($remapFile)
-    $json = $raw | ConvertFrom-Json
+try {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $desired = $utf8NoBom.GetString([Convert]::FromBase64String($desiredB64)) | ConvertFrom-Json
+    Repair-KeyCodeTypes $desired
 
-    if (($null -eq $json.remapKeys) -or ($null -eq $json.remapKeys.PSObject.Properties['inProcess'])) {
-        Show-ManualSteps "Unrecognized Keyboard Manager file format in $remapFile; not touching it."
-        exit 0
-    }
+    $ptRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys'
+    $kbmDir = Join-Path $ptRoot 'Keyboard Manager'
+    Test-PowerToysSettings $ptRoot
+    $remapFile = Get-RemapFilePath $kbmDir
 
-    $existing = @()
-    foreach ($e in @($json.remapKeys.inProcess)) {
-        if ($null -ne $e) { $existing += $e }
-    }
-
-    $missing = @()
-    $conflicts = @()
-    foreach ($w in $wanted) {
-        $match = $existing | Where-Object { [string]$_.originalKeys -eq $w.From }
-        if ($null -eq $match) {
-            $missing += $w
-        } elseif (@($match | Where-Object { [string]$_.newRemapKeys -eq $w.To }).Count -eq 0) {
-            $conflicts += ("{0} (currently -> VK {1})" -f $w.Label, (@($match)[0].newRemapKeys))
+    $current = $null
+    if (Test-Path -LiteralPath $remapFile -PathType Leaf) {
+        try {
+            $current = Read-JsonFile $remapFile
+        } catch {
+            Write-Warning "[powertoys] $remapFile is not valid JSON; replacing it (backup kept)."
         }
     }
 
-    if ($conflicts.Count -gt 0) {
-        Write-Warning '[powertoys] These keys are already remapped to something else in PowerToys; leaving your mapping alone:'
-        foreach ($c in $conflicts) { Write-Warning "[powertoys]   $c" }
-        Write-Warning '[powertoys] Change them in PowerToys Settings > Keyboard Manager if you want the sway-style swaps.'
+    if ($null -ne $current) {
+        if ((Get-ManagedSectionsJson $current) -eq (Get-ManagedSectionsJson $desired)) {
+            Write-Info 'Keyboard Manager remaps match powertoys.yaml: OK.'
+            exit 0
+        }
+        $updated = $current
+    } else {
+        $updated = New-Object PSObject
+    }
+    foreach ($name in $managedSections) {
+        $updated | Add-Member -NotePropertyName $name -NotePropertyValue $desired.$name -Force
     }
 
-    if ($missing.Count -eq 0) {
-        if ($conflicts.Count -eq 0) { Write-Info 'Caps<->Esc and LAlt<->LWin remaps are configured: OK.' }
-        exit 0
-    }
-
-    if ($conflicts.Count -gt 0) {
-        # Never write a half swap (e.g. Caps->Esc without Esc->Caps).
-        Show-ManualSteps 'Not adding the remaining remaps automatically because of the conflicts above.'
-        exit 0
-    }
-
-    foreach ($w in $missing) {
-        $existing += New-Object PSObject -Property ([ordered]@{ originalKeys = $w.From; newRemapKeys = $w.To })
-    }
-    $json.remapKeys.inProcess = [object[]]$existing
-
-    # Windows PowerShell 5.1 serializes arrays that carry ETS type data as
-    # {"value":[...],"Count":n}; dropping the System.Array type data avoids it.
-    if ($PSVersionTable.PSVersion.Major -lt 6) {
-        Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
-    }
-    $out = $json | ConvertTo-Json -Depth 32
+    $out = $updated | ConvertTo-Json -Depth 32
 
     # Sanity check before touching PowerToys' file.
-    $check = $out | ConvertFrom-Json
-    if (@($check.remapKeys.inProcess).Count -ne $existing.Count) {
-        Show-ManualSteps 'Internal check failed while merging the remaps; not writing.'
+    if ((Get-ManagedSectionsJson ($out | ConvertFrom-Json)) -ne (Get-ManagedSectionsJson $desired)) {
+        Write-Warning '[powertoys] Internal check failed while building the remap file; not writing.'
         exit 0
     }
 
-    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backup = "$remapFile.chezmoi-$stamp.bak"
-    Copy-Item -LiteralPath $remapFile -Destination $backup -Force
-    [System.IO.File]::WriteAllText($remapFile, $out, (New-Object System.Text.UTF8Encoding($false)))
-
-    foreach ($w in $missing) { Write-Info ("added remap: {0}" -f $w.Label) }
-    Write-Info "Updated $remapFile (backup: $backup)."
-    if (Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue) {
-        Write-Warning '[powertoys] PowerToys is running: restart it (tray icon > Exit, then start it again), or toggle Keyboard Manager off and on, to load the new remaps.'
+    if (Test-Path -LiteralPath $remapFile -PathType Leaf) {
+        $backup = "$remapFile.chezmoi.bak"
+        Copy-Item -LiteralPath $remapFile -Destination $backup -Force
+        Write-Info "Remaps differed from powertoys.yaml; previous file saved as $backup."
+    } else {
+        [void](New-Item -ItemType Directory -Path $kbmDir -Force)
     }
+    [System.IO.File]::WriteAllText($remapFile, $out, $utf8NoBom)
+    Write-Info "Wrote $remapFile."
+    Send-ReloadSignal
 } catch {
-    Show-ManualSteps ("Unexpected error: {0}" -f $_.Exception.Message)
+    Write-Warning ("[powertoys] Could not apply the Keyboard Manager remaps: {0}" -f $_.Exception.Message)
 }
 exit 0
 {{ end -}}

@@ -1,0 +1,46 @@
+# PowerToys Keyboard Manager remaps, owned by this repo (features.powertoys).
+#
+# run_after_40-powertoys-keyboard writes these four sections into
+# %LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\<active profile>.json on
+# every apply, so the repo is the source of truth: remaps made in the
+# PowerToys editor are replaced on the next apply (one backup is kept as
+# <profile>.json.chezmoi.bak). To keep a remap made in the UI, copy its entry
+# from that file into the matching list here.
+#
+# The shape is PowerToys' own file format, key for key:
+#   remapKeys.inProcess            single key -> key, or key -> shortcut
+#   remapKeysToText.inProcess      single key -> text   (originalKeys, unicodeText)
+#   remapShortcuts.global          shortcut -> shortcut, everywhere
+#   remapShortcuts.appSpecific     same plus targetApp (e.g. "msedge.exe")
+#   remapShortcutsToText.*         shortcut -> text     (originalKeys, unicodeText)
+# Keys are decimal virtual-key codes as STRINGS (quote them); a shortcut is
+# the codes joined with ";", e.g. "162;67" = Ctrl (Left) + C. Codes:
+# https://learn.microsoft.com/windows/win32/inputdev/virtual-key-codes
+# Shortcut entries may also carry exactMatch (bool) and operationType
+# (0 remap, 1 run program, 2 open URI); easiest is to build one in the
+# PowerToys editor and copy it from the file.
+#
+# Plain YAML, no template syntax. Every list must stay present (empty is [])
+# because PowerToys skips a whole section when its key is missing.
+
+powertoys:
+  keyboardManager:
+    remapKeys:
+      # Carried over from sway: xkb_options "caps:swapescape,altwin:swap_lalt_lwin"
+      inProcess:
+        - originalKeys: "20"   # Caps Lock
+          newRemapKeys: "27"   # -> Esc
+        - originalKeys: "27"   # Esc
+          newRemapKeys: "20"   # -> Caps Lock
+        - originalKeys: "164"  # Alt (Left)
+          newRemapKeys: "91"   # -> Win (Left)
+        - originalKeys: "91"   # Win (Left)
+          newRemapKeys: "164"  # -> Alt (Left)
+    remapKeysToText:
+      inProcess: []
+    remapShortcuts:
+      global: []
+      appSpecific: []
+    remapShortcutsToText:
+      global: []
+      appSpecific: []

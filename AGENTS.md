@@ -65,6 +65,14 @@ ext4). The goal is safe, minimal, and idempotent changes.
   a row in the README data table, and the key in the hand-written test configs.
 - No `symlink_` entries for Windows targets (they need Developer Mode).
 
+### PowerToys Keyboard Manager
+
+- Remaps live in `home/.chezmoidata/powertoys.yaml` in PowerToys' own JSON
+  shape (key codes as quoted decimal strings, every list present). The repo is
+  the source of truth: `run_after_40-powertoys-keyboard` replaces only the four
+  remap sections of the active profile file and keeps other fields. PowerToys'
+  `settings.json` files are runner-owned: read them, never write them.
+
 ### Packages: one owner per tool
 
 Never install the same tool from two places (PATH shadowing).
