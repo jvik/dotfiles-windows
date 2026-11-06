@@ -1,0 +1,174 @@
+{{- if and .isWindows .features.powertoys -}}
+# chezmoi: run_after_40-powertoys-keyboard (runs on every apply)
+#
+# Carries the old sway keyboard habits over to Windows with PowerToys Keyboard
+# Manager. Old sway config:
+#     xkb_options "caps:swapescape,altwin:swap_lalt_lwin"
+# i.e. two single-key SWAPS:
+#     Caps Lock  <-> Escape
+#     Left Alt   <-> Left Windows
+#
+# Why not a chezmoi-managed file: PowerToys owns
+#   %LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json
+# (its editor rewrites the whole file, and the schema grows between releases),
+# and settings.json is rewritten by the PowerToys runner. Replacing either from
+# chezmoi would either be clobbered or drop fields PowerToys added. PowerToys'
+# DSC module only exposes module settings, not the remap tables.
+#
+# So this script MERGES instead:
+#   - only if PowerToys has already created default.json (never invents the
+#     file or its schema),
+#   - adds only the four missing remaps to remapKeys.inProcess and keeps every
+#     other entry and field as-is,
+#   - leaves the file alone if any of the four source keys is already mapped to
+#     something else (your UI choice wins; it says so),
+#   - backs the file up before writing, writes UTF-8 without BOM.
+# In every other situation it prints the manual steps. It never fails the
+# apply. Set features.powertoys = false in the chezmoi config to opt out.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+# Virtual-key codes as Keyboard Manager stores them (decimal strings).
+#   VK_CAPITAL = 20, VK_ESCAPE = 27, VK_LMENU (Left Alt) = 164, VK_LWIN = 91
+$wanted = @(
+    @{ From = '20';  To = '27';  Label = 'Caps Lock -> Esc' },
+    @{ From = '27';  To = '20';  Label = 'Esc -> Caps Lock' },
+    @{ From = '164'; To = '91';  Label = 'Alt (Left) -> Win (Left)' },
+    @{ From = '91';  To = '164'; Label = 'Win (Left) -> Alt (Left)' }
+)
+
+function Write-Info([string]$Message) { Write-Host "[powertoys] $Message" }
+
+function Show-ManualSteps([string]$Reason) {
+    Write-Warning "[powertoys] $Reason"
+    Write-Host '[powertoys] Set the remaps by hand (one time; PowerToys keeps them):'
+    Write-Host '[powertoys]   1. Start PowerToys (winget id Microsoft.PowerToys) and open PowerToys Settings.'
+    Write-Host '[powertoys]   2. Keyboard Manager -> turn "Enable Keyboard Manager" on.'
+    Write-Host '[powertoys]   3. "Remap a key" -> add these four rows, then OK:'
+    foreach ($w in $wanted) { Write-Host ("[powertoys]        {0}" -f $w.Label) }
+    Write-Host '[powertoys]      (Alt (Left) / Win (Left) are the left-hand variants in the key list;'
+    Write-Host '[powertoys]       accept the "unassigned key" warning, the pairs are swaps.)'
+    Write-Host '[powertoys]   4. Optional: run chezmoi apply again; this check then just reports OK.'
+}
+
+$ptRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\PowerToys'
+$kbmDir = Join-Path $ptRoot 'Keyboard Manager'
+
+try {
+    if (-not (Test-Path -LiteralPath $ptRoot -PathType Container)) {
+        Show-ManualSteps 'PowerToys has not been run yet for this user (no settings folder).'
+        exit 0
+    }
+
+    # Is the module enabled? Read-only: settings.json belongs to the runner.
+    $globalSettings = Join-Path $ptRoot 'settings.json'
+    if (Test-Path -LiteralPath $globalSettings -PathType Leaf) {
+        try {
+            $gs = [System.IO.File]::ReadAllText($globalSettings) | ConvertFrom-Json
+            $enabledProp = $null
+            if ($gs.enabled) { $enabledProp = $gs.enabled.PSObject.Properties['Keyboard Manager'] }
+            if (($null -ne $enabledProp) -and (-not [bool]$enabledProp.Value)) {
+                Write-Warning '[powertoys] Keyboard Manager is DISABLED. Enable it in PowerToys Settings > Keyboard Manager (not changed automatically: PowerToys overwrites settings.json).'
+            }
+        } catch {
+            Write-Info "Could not read $globalSettings ($($_.Exception.Message)); skipping the enabled check."
+        }
+    }
+
+    # Which remap profile is active (normally "default").
+    $profileName = 'default'
+    $kbmSettings = Join-Path $kbmDir 'settings.json'
+    if (Test-Path -LiteralPath $kbmSettings -PathType Leaf) {
+        try {
+            $ks = [System.IO.File]::ReadAllText($kbmSettings) | ConvertFrom-Json
+            if ($ks.properties -and $ks.properties.activeConfiguration -and $ks.properties.activeConfiguration.value) {
+                $profileName = [string]$ks.properties.activeConfiguration.value
+            }
+        } catch {
+            $profileName = 'default'
+        }
+    }
+    $remapFile = Join-Path $kbmDir ($profileName + '.json')
+
+    if (-not (Test-Path -LiteralPath $remapFile -PathType Leaf)) {
+        Show-ManualSteps "No remap file yet ($remapFile); PowerToys creates it the first time Keyboard Manager saves."
+        exit 0
+    }
+
+    $raw = [System.IO.File]::ReadAllText($remapFile)
+    $json = $raw | ConvertFrom-Json
+
+    if (($null -eq $json.remapKeys) -or ($null -eq $json.remapKeys.PSObject.Properties['inProcess'])) {
+        Show-ManualSteps "Unrecognized Keyboard Manager file format in $remapFile; not touching it."
+        exit 0
+    }
+
+    $existing = @()
+    foreach ($e in @($json.remapKeys.inProcess)) {
+        if ($null -ne $e) { $existing += $e }
+    }
+
+    $missing = @()
+    $conflicts = @()
+    foreach ($w in $wanted) {
+        $match = $existing | Where-Object { [string]$_.originalKeys -eq $w.From }
+        if ($null -eq $match) {
+            $missing += $w
+        } elseif (@($match | Where-Object { [string]$_.newRemapKeys -eq $w.To }).Count -eq 0) {
+            $conflicts += ("{0} (currently -> VK {1})" -f $w.Label, (@($match)[0].newRemapKeys))
+        }
+    }
+
+    if ($conflicts.Count -gt 0) {
+        Write-Warning '[powertoys] These keys are already remapped to something else in PowerToys; leaving your mapping alone:'
+        foreach ($c in $conflicts) { Write-Warning "[powertoys]   $c" }
+        Write-Warning '[powertoys] Change them in PowerToys Settings > Keyboard Manager if you want the sway-style swaps.'
+    }
+
+    if ($missing.Count -eq 0) {
+        if ($conflicts.Count -eq 0) { Write-Info 'Caps<->Esc and LAlt<->LWin remaps are configured: OK.' }
+        exit 0
+    }
+
+    if ($conflicts.Count -gt 0) {
+        # Never write a half swap (e.g. Caps->Esc without Esc->Caps).
+        Show-ManualSteps 'Not adding the remaining remaps automatically because of the conflicts above.'
+        exit 0
+    }
+
+    foreach ($w in $missing) {
+        $existing += New-Object PSObject -Property ([ordered]@{ originalKeys = $w.From; newRemapKeys = $w.To })
+    }
+    $json.remapKeys.inProcess = [object[]]$existing
+
+    # Windows PowerShell 5.1 serializes arrays that carry ETS type data as
+    # {"value":[...],"Count":n}; dropping the System.Array type data avoids it.
+    if ($PSVersionTable.PSVersion.Major -lt 6) {
+        Remove-TypeData -TypeName System.Array -ErrorAction SilentlyContinue
+    }
+    $out = $json | ConvertTo-Json -Depth 32
+
+    # Sanity check before touching PowerToys' file.
+    $check = $out | ConvertFrom-Json
+    if (@($check.remapKeys.inProcess).Count -ne $existing.Count) {
+        Show-ManualSteps 'Internal check failed while merging the remaps; not writing.'
+        exit 0
+    }
+
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backup = "$remapFile.chezmoi-$stamp.bak"
+    Copy-Item -LiteralPath $remapFile -Destination $backup -Force
+    [System.IO.File]::WriteAllText($remapFile, $out, (New-Object System.Text.UTF8Encoding($false)))
+
+    foreach ($w in $missing) { Write-Info ("added remap: {0}" -f $w.Label) }
+    Write-Info "Updated $remapFile (backup: $backup)."
+    if (Get-Process -Name 'PowerToys' -ErrorAction SilentlyContinue) {
+        Write-Warning '[powertoys] PowerToys is running: restart it (tray icon > Exit, then start it again), or toggle Keyboard Manager off and on, to load the new remaps.'
+    }
+} catch {
+    Show-ManualSteps ("Unexpected error: {0}" -f $_.Exception.Message)
+}
+exit 0
+{{ end -}}

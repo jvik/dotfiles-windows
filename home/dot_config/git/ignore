@@ -1,0 +1,18 @@
+# Global gitignore (git's default core.excludesFile: ~/.config/git/ignore).
+# Used by git on both Windows and WSL. Keep it to editor/OS cruft only;
+# project-specific patterns belong in the project's .gitignore.
+
+# Vim/Neovim swap and backup files
+*.swp
+*.swo
+.*.sw?
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Per-user local overrides
+mise.local.toml
+.mise.local.toml

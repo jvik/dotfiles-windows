@@ -1,0 +1,58 @@
+{
+  "theme": "auto",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "env": {
+    "CLAUDE_CODE_NO_FLICKER": "1"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git remote -v)",
+      "Bash(git blame*)",
+      "Bash(git stash list*)",
+      "Bash(git worktree list*)",
+      "Bash(chezmoi diff*)",
+      "Bash(chezmoi status*)",
+      "Bash(chezmoi data*)",
+      "Bash(chezmoi doctor*)",
+      "Bash(chezmoi cat*)",
+      "Bash(chezmoi managed*)",
+      "Bash(chezmoi source-path*)",
+      "Bash(chezmoi verify*)",
+      "Bash(chezmoi apply --dry-run)",
+      "Bash(ls*)",
+      "Bash(find*)",
+      "Bash(rg*)",
+      "Bash(grep*)",
+      "Bash(wc*)",
+      "Bash(file*)",
+      "Bash(tree*)",
+      "Bash(head*)",
+      "Bash(tail*)",
+      "Bash(pwd)",
+      "Bash(which*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Bash(find*-exec*)",
+      "Bash(find*-execdir*)",
+      "Bash(find*-delete*)",
+      "Bash(find*-fprintf*)",
+      "Bash(find*|*)",
+      "Bash(*;*)",
+      "Bash(*&&*)",
+      "Bash(*||*)",
+      "Bash(*`*)",
+      "Bash(*$(*)*)"
+    ]
+  }
+}

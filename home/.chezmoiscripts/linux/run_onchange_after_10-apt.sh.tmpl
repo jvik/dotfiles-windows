@@ -1,0 +1,129 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# Base OS packages for WSL Ubuntu (apt). The package list is rendered from
+# home/.chezmoidata/packages.yaml (packages.wsl.apt), so chezmoi re-runs this
+# script whenever that list changes. General CLIs live in brew (20-brew),
+# version-pinned tools in mise (30-mise).
+#
+# features.docker: {{ .features.docker }}
+# corporate CAs (re-run when one is added or changed):
+{{- range glob ".config/certs/*.crt" }}
+#   {{ . }} {{ include (joinPath $.chezmoi.destDir .) | sha256sum }}
+{{- end }}
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [apt] %s\n' "$*"; }
+
+apt_packages=(
+{{- range .packages.wsl.apt }}
+    {{ if kindIs "map" . }}{{ .name | squote }}{{ else }}{{ . | squote }}{{ end }}
+{{- end }}
+)
+
+sudo -v
+
+# --- Corporate TLS inspection (optional hook) ---------------------------------
+# Put the corporate root CA(s), Base-64 PEM with a .crt extension, in
+# ~/.config/certs/. They are copied to /usr/local/share/ca-certificates and the
+# system bundle is rebuilt. Done first so the HTTPS repos below work.
+install_corp_certs() {
+    local cert changed=0
+    shopt -s nullglob
+    for cert in "$HOME"/.config/certs/*.crt; do
+        local dest="/usr/local/share/ca-certificates/$(basename "$cert")"
+        if ! sudo cmp -s "$cert" "$dest"; then
+            log "installing corporate CA $(basename "$cert")"
+            sudo install -m 0644 "$cert" "$dest"
+            changed=1
+        fi
+    done
+    shopt -u nullglob
+    if [ "$changed" = 1 ]; then
+        sudo update-ca-certificates
+    fi
+}
+install_corp_certs
+
+# --- Ubuntu tweaks --------------------------------------------------------------
+# Silence Ubuntu Pro ESM apt advertising.
+if command -v pro >/dev/null 2>&1; then
+    sudo pro config set apt_news=false >/dev/null || log "pro config failed (ignored)"
+fi
+
+# Always include phased updates (stop apt holding packages back with a
+# "Not upgrading" note).
+phased=/etc/apt/apt.conf.d/99-always-include-phased-updates
+phased_content='APT::Get::Always-Include-Phased-Updates "true";'
+if [ "$(cat "$phased" 2>/dev/null)" != "$phased_content" ]; then
+    log "writing $phased"
+    printf '%s\n' "$phased_content" | sudo tee "$phased" >/dev/null
+fi
+
+# --- fish 4.x from the fish-shell release-4 PPA ---------------------------------
+# Ubuntu's own fish is 3.x; the PPA keeps the login shell at /usr/bin/fish.
+if ! grep -rqs 'fish-shell/release-4' /etc/apt/sources.list /etc/apt/sources.list.d/; then
+    log "adding ppa:fish-shell/release-4"
+    sudo add-apt-repository -y -n ppa:fish-shell/release-4
+fi
+{{- if .features.docker }}
+
+# --- Docker Engine (docker-ce) official apt repository --------------------------
+# Docker Engine inside WSL, no Docker Desktop.
+# https://docs.docker.com/engine/install/ubuntu/
+if [ ! -f /etc/apt/sources.list.d/docker.sources ]; then
+    log "adding the Docker apt repository"
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    # shellcheck disable=SC1091
+    codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+    sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: ${codename}
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+fi
+{{- end }}
+
+# --- Packages -------------------------------------------------------------------
+log "apt-get update"
+sudo apt-get update
+
+log "installing: ${apt_packages[*]} fish"
+sudo apt-get install -y "${apt_packages[@]}" fish
+{{- if .features.docker }}
+
+# --- Docker Engine packages -------------------------------------------------------
+docker_packages=(
+{{- if hasKey .packages.wsl "docker" }}
+{{- range .packages.wsl.docker }}
+    {{ if kindIs "map" . }}{{ .name | squote }}{{ else }}{{ . | squote }}{{ end }}
+{{- end }}
+{{- else }}
+    docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+{{- end }}
+)
+
+# Unofficial packages that conflict with docker-ce (Docker's install docs).
+for pkg in docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc; do
+    if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        log "removing conflicting package $pkg"
+        sudo apt-get remove -y "$pkg"
+    fi
+done
+
+log "installing: ${docker_packages[*]}"
+sudo apt-get install -y "${docker_packages[@]}"
+
+user="$(id -un)"
+if ! id -nG "$user" | tr ' ' '\n' | grep -qx docker; then
+    log "adding $user to the docker group (takes effect in a new login; run 'wsl --shutdown' from Windows)"
+    sudo usermod -aG docker "$user"
+fi
+{{- end }}
+
+log "done"
+{{ end -}}

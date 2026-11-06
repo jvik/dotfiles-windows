@@ -1,0 +1,343 @@
+#!/usr/bin/env bash
+# agent-sandbox — run a coding agent (claude, copilot, …) inside bubblewrap.
+# WSL2 Ubuntu only (needs the apt package bubblewrap). Native Windows has no
+# equivalent; to isolate an agent, run it here.
+#
+# The agent CAN:
+#   - read and write the current project (git toplevel, or $PWD outside a repo)
+#   - read the system (/usr, /etc) and your toolchains (mise, brew, cargo, nix)
+#   - read and write its own state dir (~/.claude, ~/.copilot, ~/.codex) so login and history persist
+#   - reach the network, since it has to talk to its API
+#
+# The agent CANNOT:
+#   - see the rest of $HOME (ssh keys, ~/.config/gh, other repos);
+#     it gets an empty tmpfs home, so anything it writes outside the project is lost on exit
+#   - talk to your session: /run is not mounted, so no systemd user bus, ssh-agent
+#     bridge socket or docker socket (nothing here assumes D-Bus or a desktop)
+#   - sign commits or push over ssh, unless --ssh is given (commits are made unsigned)
+#   - reach Windows (see the invariant below)
+#   - plant code that the host runs later, outside the sandbox, through the
+#     obvious routes: ~/.claude/settings.json and its hooks/, commands/,
+#     agents/, skills/ and plugins/ are read-only; ~/.claude.json (user MCP
+#     servers) is a throwaway copy; the repo's .git/hooks and .git/config
+#     (core.hooksPath, core.fsmonitor, filters) are read-only
+#
+# Still the agent's to write, so review before running it on the host:
+#   - anything in the project (Makefile, justfile, package.json scripts,
+#     mise.toml, .envrc, .vscode/tasks.json, a nested repo's .git/hooks, ...)
+#   - other files under ~/.claude that settings.json may point at (e.g. a
+#     statusline script): keep such scripts outside ~/.claude or add them to
+#     claude_ro below
+#
+# INVARIANT (WSL): /mnt, /run/WSL and WSL_INTEROP stay out of the sandbox.
+#   WSL runs a Windows .exe by handing it to the Windows host through the
+#   interop socket (/run/WSL/<pid>_interop, named by $WSL_INTEROP). A reachable
+#   socket would let the agent start powershell.exe/cmd.exe on Windows with
+#   your full user rights, outside the sandbox, and /mnt/c is the whole Windows
+#   profile. So:
+#     - /mnt and /run are never bound as a whole; the only exceptions are
+#       /run/systemd/resolve and the single resolv.conf file that WSL keeps in
+#       /mnt/wsl, each bound at its own path (no /mnt/<drive>, no /run/WSL);
+#     - --clearenv drops WSL_INTEROP, WSLENV and WSL_DISTRO_NAME, and none of
+#       them is on the pass-through list;
+#     - --ro/--rw refuse anything under /mnt, /run or /init.
+#   Do not relax this without thinking it through. Quick check after changes:
+#     agent-sandbox bash -c 'ls /mnt /run; echo "$WSL_INTEROP"; cmd.exe /c ver'
+#   must list nothing, print an empty line, and fail to start cmd.exe.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: agent-sandbox [options] [--] <command> [args...]
+
+Options:
+  --ssh         Expose ssh-agent (git push over ssh, signed commits)
+  --gh          Expose GitHub CLI auth (GH_TOKEN from `gh auth token`)
+  --ro <path>   Extra read-only bind (repeatable; not under /mnt, /run or /init)
+  --rw <path>   Extra read-write bind (repeatable; not under /mnt, /run or /init)
+  -h, --help    Show this help
+
+Examples:
+  agent-sandbox claude --dangerously-skip-permissions
+  agent-sandbox --gh copilot --allow-all-tools
+  agent-sandbox codex
+  agent-sandbox --ro ~/src/shared-lib bash
+EOF
+}
+
+# Paths that would break the WSL invariant above.
+forbidden_path() {
+    case "$1" in
+        /mnt | /mnt/* | /run | /run/* | /init) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+expose_ssh=false
+expose_gh=false
+extra_binds=()
+
+while (($#)); do
+    case "$1" in
+        --ssh) expose_ssh=true ;;
+        --gh) expose_gh=true ;;
+        --ro | --rw)
+            path=$(realpath -e "${2:?$1 needs a path}")
+            if forbidden_path "$path"; then
+                echo "agent-sandbox: refusing to bind $path (Windows drives and WSL interop stay hidden)" >&2
+                exit 1
+            fi
+            if [[ "$1" == --ro ]]; then
+                extra_binds+=(--ro-bind "$path" "$path")
+            else
+                extra_binds+=(--bind "$path" "$path")
+            fi
+            shift
+            ;;
+        -h | --help) usage; exit 0 ;;
+        --) shift; break ;;
+        -*) echo "agent-sandbox: unknown option $1" >&2; usage >&2; exit 2 ;;
+        *) break ;;
+    esac
+    shift
+done
+
+if (($# == 0)); then
+    usage >&2
+    exit 2
+fi
+
+if ! command -v bwrap >/dev/null; then
+    echo "agent-sandbox: bwrap not found; install it with: sudo apt install bubblewrap" >&2
+    exit 1
+fi
+
+project_dir=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [[ "$project_dir" == "$HOME" || "$project_dir" == / ]]; then
+    echo "agent-sandbox: refusing to expose $project_dir read-write; cd into a project" >&2
+    exit 1
+fi
+if forbidden_path "$project_dir"; then
+    # Projects on /mnt/c are slow and CRLF-prone anyway; keep them on ext4.
+    echo "agent-sandbox: refusing to expose $project_dir; keep agent projects in the WSL home, not on a Windows drive" >&2
+    exit 1
+fi
+
+args=(
+    --unshare-all
+    --share-net
+    --die-with-parent
+    --hostname agent-sandbox
+
+    # System, read-only. bin/lib/sbin are symlinks into /usr on merged-usr distros.
+    --ro-bind /usr /usr
+    --ro-bind /etc /etc
+    --ro-bind-try /opt /opt
+    --ro-bind-try /nix /nix
+    # /etc/resolv.conf points into /run on systemd-resolved hosts
+    --ro-bind-try /run/systemd/resolve /run/systemd/resolve
+    --proc /proc
+    --dev /dev
+    --tmpfs /dev/shm
+    --tmpfs /tmp
+
+    # Empty, throwaway home; only what is bound below survives the session.
+    --tmpfs "$HOME"
+    --ro-bind-try "$HOME/.local/bin" "$HOME/.local/bin"
+    --ro-bind-try "$HOME/.local/share/mise" "$HOME/.local/share/mise"
+    --ro-bind-try "$HOME/.config/mise" "$HOME/.config/mise"
+    --ro-bind-try "$HOME/.cargo/bin" "$HOME/.cargo/bin"
+    --ro-bind-try "$HOME/.rustup" "$HOME/.rustup"
+    --ro-bind-try "$HOME/go/bin" "$HOME/go/bin"
+    --ro-bind-try "$HOME/.bun/bin" "$HOME/.bun/bin"
+    --ro-bind-try "$HOME/.nix-profile" "$HOME/.nix-profile"
+    --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
+    --ro-bind-try "$HOME/.gitignore" "$HOME/.gitignore"
+    --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
+
+    --bind "$project_dir" "$project_dir"
+)
+
+# Homebrew (Linuxbrew) lives outside $HOME; bind it only when it is installed.
+if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+    args+=(--ro-bind /home/linuxbrew /home/linuxbrew)
+fi
+
+# WSL generates /etc/resolv.conf, usually as a symlink to /mnt/wsl/resolv.conf.
+# /mnt is not mounted in here, so bind just that one file at its real path or
+# DNS fails. Only known resolver locations are accepted, never a Windows drive.
+resolv=$(realpath -q /etc/resolv.conf 2>/dev/null || true)
+if [[ -n "$resolv" && -f "$resolv" && "$resolv" != /etc/* ]]; then
+    case "$resolv" in
+        /run/systemd/resolve/*) ;; # already bound above
+        /mnt/wsl/* | /run/resolvconf/*)
+            args+=(--ro-bind "$resolv" "$resolv")
+            ;;
+        *)
+            echo "agent-sandbox: warning: /etc/resolv.conf -> $resolv not bound; DNS may fail" >&2
+            ;;
+    esac
+fi
+
+for dir in bin sbin lib lib32 lib64 libx32; do
+    if [[ -L "/$dir" ]]; then
+        args+=(--symlink "$(readlink "/$dir")" "/$dir")
+    elif [[ -d "/$dir" ]]; then
+        args+=(--ro-bind "/$dir" "/$dir")
+    fi
+done
+
+# A linked worktree keeps its objects and refs in the main repo's .git, which
+# lies outside the worktree; without it git cannot commit.
+git_common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+if [[ -n "$git_common_dir" && "$git_common_dir" != "$project_dir"/* ]]; then
+    if forbidden_path "$git_common_dir"; then
+        echo "agent-sandbox: refusing to expose $git_common_dir; keep the main repository in the WSL home" >&2
+        exit 1
+    fi
+    args+=(--bind "$git_common_dir" "$git_common_dir")
+fi
+
+# The host's git runs .git/hooks and whatever .git/config names (core.hooksPath,
+# core.fsmonitor, filter/diff drivers) on the next command outside the sandbox,
+# so mount them read-only on top of the read-write binds above. hooks/ is
+# created first so the agent cannot create it inside. Side effect: commands
+# that write the repo config (git remote add, branch --set-upstream-to) fail
+# in here; run those outside.
+if [[ -n "$git_common_dir" && -d "$git_common_dir" ]]; then
+    mkdir -p "$git_common_dir/hooks"
+    args+=(--ro-bind "$git_common_dir/hooks" "$git_common_dir/hooks")
+    args+=(--ro-bind-try "$git_common_dir/config" "$git_common_dir/config")
+    git_dir=$(git rev-parse --path-format=absolute --git-dir 2>/dev/null || true)
+    if [[ -n "$git_dir" && "$git_dir" != "$git_common_dir" ]]; then
+        # Per-worktree config (extensions.worktreeConfig).
+        args+=(--ro-bind-try "$git_dir/config.worktree" "$git_dir/config.worktree")
+    fi
+fi
+
+# Start from an empty environment so tokens exported in the shell do not leak in.
+# WSL_INTEROP, WSLENV and WSL_DISTRO_NAME must never be added to this list.
+args+=(--clearenv)
+for var in PATH USER LOGNAME LANG LANGUAGE LC_ALL LC_CTYPE LC_MESSAGES TZ \
+    TERM COLORTERM TERM_PROGRAM TERM_PROGRAM_VERSION NO_COLOR FORCE_COLOR \
+    EDITOR VISUAL MISE_DATA_DIR MISE_CONFIG_DIR \
+    NODE_EXTRA_CA_CERTS SSL_CERT_FILE REQUESTS_CA_BUNDLE \
+    ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL COPILOT_GITHUB_TOKEN; do
+    if [[ -n "${!var:-}" ]]; then
+        args+=(--setenv "$var" "${!var}")
+    fi
+done
+args+=(
+    --setenv HOME "$HOME"
+    --setenv SHELL /bin/bash
+    --setenv AGENT_SANDBOX 1
+)
+
+# In WSL the agent socket comes from the wsl2-ssh-agent bridge (a unix socket,
+# usually ~/.ssh/wsl2-ssh-agent.sock), so it can be bound like any other.
+if $expose_ssh && [[ -S "${SSH_AUTH_SOCK:-}" ]]; then
+    args+=(
+        --ro-bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK"
+        --setenv SSH_AUTH_SOCK "$SSH_AUTH_SOCK"
+        --ro-bind-try "$HOME/.ssh/known_hosts" "$HOME/.ssh/known_hosts"
+    )
+else
+    if $expose_ssh; then
+        echo "agent-sandbox: warning: SSH_AUTH_SOCK is not a socket; continuing without ssh-agent" >&2
+    fi
+    # Signing needs ssh-agent; commit unsigned instead of failing every commit.
+    args+=(
+        --setenv GIT_CONFIG_COUNT 1
+        --setenv GIT_CONFIG_KEY_0 commit.gpgsign
+        --setenv GIT_CONFIG_VALUE_0 false
+    )
+fi
+
+# The gh token lives in the keyring or, in WSL (no Secret Service), in
+# ~/.config/gh/hosts.yml; both are unreachable from inside.
+gh_token() {
+    command -v gh >/dev/null && gh auth token 2>/dev/null
+}
+
+if $expose_gh; then
+    token=$(gh_token) || { echo "agent-sandbox: gh auth token failed" >&2; exit 1; }
+    args+=(
+        --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+        --setenv GH_TOKEN "$token"
+    )
+fi
+
+# Per-agent state. Directories are created up front because a bind onto a
+# missing path would silently land in the throwaway tmpfs home instead.
+agent=$(basename "$1")
+case "$agent" in
+    codex)
+        codex_home=$(realpath -m "${CODEX_HOME:-$HOME/.codex}")
+        mkdir -p "$codex_home"
+        args+=(
+            --bind "$codex_home" "$codex_home"
+            --setenv CODEX_HOME "$codex_home"
+        )
+        if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+            args+=(--setenv OPENAI_API_KEY "$OPENAI_API_KEY")
+        fi
+        # A shared host daemon would execute outside this sandbox.
+        set -- "$1" --no-daemon "${@:2}"
+        ;;
+    claude)
+        mkdir -p "$HOME/.claude"
+        args+=(
+            --bind "$HOME/.claude" "$HOME/.claude"
+            --ro-bind-try "$HOME/.local/share/claude" "$HOME/.local/share/claude"
+            # The install dir is read-only in here; update from outside instead.
+            --setenv DISABLE_AUTOUPDATER 1
+        )
+        # Whatever a normal (unsandboxed) `claude` run would execute stays
+        # read-only: settings.json (hooks, statusLine, MCP), and the dirs that
+        # hold hooks, slash commands, agents, skills and plugins. Created up
+        # front so the agent cannot create them in the writable ~/.claude.
+        # (chezmoi deploys settings.json; "{}" is what its merge starts from.)
+        [[ -e "$HOME/.claude/settings.json" ]] || printf '{}\n' >"$HOME/.claude/settings.json"
+        claude_ro=(settings.json hooks commands agents skills plugins)
+        for p in "${claude_ro[@]}"; do
+            [[ "$p" == *.json ]] || mkdir -p "$HOME/.claude/$p"
+            args+=(--ro-bind "$HOME/.claude/$p" "$HOME/.claude/$p")
+        done
+        # ~/.claude.json holds user-scope mcpServers (commands run by every
+        # later claude session). Give the agent a private, writable copy on the
+        # throwaway home (bwrap --file reads it from fd 9); changes are lost on
+        # exit, e.g. new project trust, which is fine for sandboxed runs.
+        if [[ -f "$HOME/.claude.json" ]]; then
+            exec 9<"$HOME/.claude.json"
+            args+=(--file 9 "$HOME/.claude.json")
+        fi
+        # Claude's own Bash sandbox is bwrap too. The stock WSL kernel has no
+        # AppArmor, so nesting may work here, but it is untested and this outer
+        # layer already isolates the agent; turn the inner one off so a failed
+        # nested sandbox does not fall back to prompting for every command.
+        set -- "$1" --settings '{"sandbox":{"enabled":false}}' "${@:2}"
+        ;;
+    copilot)
+        mkdir -p "$HOME/.copilot"
+        args+=(--bind "$HOME/.copilot" "$HOME/.copilot")
+        # The Copilot CLI shim that VS Code's Copilot Chat installs. Under
+        # Remote-WSL the extension runs in the WSL server, so it lives under
+        # ~/.vscode-server[-insiders], not ~/.config/Code.
+        for vscode_data in "$HOME/.vscode-server/data" "$HOME/.vscode-server-insiders/data"; do
+            copilot_cli_dir="$vscode_data/User/globalStorage/github.copilot-chat/copilotCli"
+            args+=(--ro-bind-try "$copilot_cli_dir" "$copilot_cli_dir")
+        done
+        if [[ -z "${COPILOT_GITHUB_TOKEN:-}" ]] && token=$(gh_token); then
+            args+=(--setenv COPILOT_GITHUB_TOKEN "$token")
+        fi
+        ;;
+esac
+
+# TIOCSTI lets a process type into the parent terminal. Only detach from the
+# terminal when the kernel still allows it, since that breaks job control.
+if [[ "$(cat /proc/sys/dev/tty/legacy_tiocsti 2>/dev/null || echo 1)" != 0 ]]; then
+    args+=(--new-session)
+fi
+
+exec bwrap "${args[@]}" "${extra_binds[@]}" --chdir "$PWD" -- "$@"

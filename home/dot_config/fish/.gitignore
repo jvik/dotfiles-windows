@@ -1,0 +1,9 @@
+# Fish shell local configuration
+local.fish
+
+# Fish shell generated files
+fish_variables
+fishd.*
+
+# Fish history
+fish_history

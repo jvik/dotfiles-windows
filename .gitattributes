@@ -1,0 +1,25 @@
+# LF everywhere, including on Windows checkouts. Git for Windows defaults to
+# core.autocrlf=true, which would hand chezmoi CRLF sources and break the
+# fish/bash/tmux files deployed into WSL; eol=lf wins over autocrlf.
+* text=auto eol=lf
+
+# PowerShell is fine with LF (both 5.1 and 7). Keep .ps1 pure ASCII:
+# Windows PowerShell 5.1 reads BOM-less files as ANSI.
+*.ps1       text eol=lf
+*.ps1.tmpl  text eol=lf
+*.psm1      text eol=lf
+
+# cmd.exe needs CRLF (none in the repo today; here so a future one works).
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.ttf       binary
+*.otf       binary
+*.zip       binary
+*.boltdb    binary

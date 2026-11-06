@@ -1,0 +1,64 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_30-obsidian-vimrc
+#
+# Copies the Obsidian vimrc (source: home/.chezmoitemplates/obsidian.vimrc)
+# into the root of the vault named by the chezmoi data variable obsidianVault,
+# as .obsidian.vimrc. The vault can live anywhere (OneDrive, another drive), so
+# this is a script rather than a chezmoi target. Empty obsidianVault => skip.
+# Runs on every apply (run_after_, not run_onchange_): a vault folder that does
+# not exist yet (OneDrive still syncing) is picked up by the next apply. It is
+# cheap and idempotent: it only writes when the content differs.
+#
+# The file is only read by the "Vimrc Support" community plugin, with
+# Settings > Editor > "Vim key bindings" enabled.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible. Data that
+# may contain non-ASCII (the vault path) is embedded base64-encoded (UTF-8).
+
+$ErrorActionPreference = 'Stop'
+
+$vaultB64 = '{{ .obsidianVault | b64enc }}'
+# hash: {{ include ".chezmoitemplates/obsidian.vimrc" | sha256sum }}
+$vimrcB64 = '{{ include ".chezmoitemplates/obsidian.vimrc" | b64enc }}'
+
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+$vault = ''
+if ($vaultB64) { $vault = $utf8.GetString([Convert]::FromBase64String($vaultB64)).Trim() }
+
+if ([string]::IsNullOrWhiteSpace($vault)) {
+    Write-Host '[obsidian] obsidianVault is not set in chezmoi data; skipping .obsidian.vimrc.'
+    exit 0
+}
+
+# Allow %USERPROFILE%-style variables and a leading ~ in the configured path.
+$vault = [Environment]::ExpandEnvironmentVariables($vault)
+if ($vault -eq '~') {
+    $vault = $HOME
+} elseif ($vault.StartsWith('~\') -or $vault.StartsWith('~/')) {
+    $vault = Join-Path $HOME $vault.Substring(2)
+}
+
+if (-not (Test-Path -LiteralPath $vault -PathType Container)) {
+    Write-Warning "[obsidian] Vault folder '$vault' does not exist; skipping .obsidian.vimrc."
+    Write-Warning '[obsidian] Fix obsidianVault (chezmoi edit-config) or wait for the folder to sync; the next chezmoi apply retries.'
+    exit 0
+}
+
+$target = Join-Path $vault '.obsidian.vimrc'
+$content = $utf8.GetString([Convert]::FromBase64String($vimrcB64))
+
+if (Test-Path -LiteralPath $target -PathType Leaf) {
+    $current = [System.IO.File]::ReadAllText($target)
+    if ($current -eq $content) {
+        Write-Host "[obsidian] $target is up to date."
+        exit 0
+    }
+    $backup = "$target.bak"
+    Copy-Item -LiteralPath $target -Destination $backup -Force
+    Write-Host "[obsidian] Existing file backed up to $backup"
+}
+
+[System.IO.File]::WriteAllText($target, $content, $utf8)
+Write-Host "[obsidian] Wrote $target"
+exit 0
+{{ end -}}

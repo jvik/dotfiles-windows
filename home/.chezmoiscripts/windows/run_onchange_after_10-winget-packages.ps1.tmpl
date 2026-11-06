@@ -1,0 +1,132 @@
+{{- if .isWindows -}}
+{{- /*
+  Lists to install: packages.windows.winget always, plus every feature-gated
+  list packages.windows.<name> whose .features.<name> is true (e.g.
+  packages.windows.powertoys when features.powertoys). See the header of
+  home/.chezmoidata/packages.yaml.
+*/ -}}
+{{- $win := dig "windows" (dict) .packages -}}
+{{- $groups := list -}}
+{{- if hasKey $win "winget" -}}
+{{-   $groups = append $groups (dict "name" "winget" "items" (get $win "winget")) -}}
+{{- end -}}
+{{- range $name, $items := $win -}}
+{{-   if and (ne $name "winget") (hasKey $.features $name) (get $.features $name) -}}
+{{-     $groups = append $groups (dict "name" $name "items" $items) -}}
+{{-   end -}}
+{{- end -}}
+# chezmoi: run_onchange_after_10-winget-packages
+#
+# Installs the Windows apps listed in home/.chezmoidata/packages.yaml:
+# packages.windows.winget, plus feature-gated lists packages.windows.<feature>
+# when .features.<feature> is true. The lists are rendered into this script, so
+# chezmoi re-runs it whenever a list or a feature flag changes.
+#
+# - Already installed (per `winget list --id <id> --exact`) => skipped.
+# - Missing => `winget install` from the winget source, honouring the optional
+#   per-package scope (user|machine). Machine-scope installers may show UAC.
+# - A failure is logged and the loop continues; failures are summarized at the
+#   end. The script still exits 0 so the rest of `chezmoi apply` runs.
+# - Upgrades are topgrade's job (winget step), not this script's.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+$packages = @(
+{{- range $groups }}
+{{-   $group := .name }}
+    # packages.windows.{{ $group }}
+{{-   range .items }}
+    @{ Id = '{{ .id | replace "'" "''" }}'; Scope = '{{ if hasKey . "scope" }}{{ .scope | lower | replace "'" "" }}{{ end }}'; Note = '{{ if hasKey . "note" }}{{ regexReplaceAll "[^ -~]" .note "?" | replace "'" "''" }}{{ end }}' }
+{{-   end }}
+{{- end }}
+)
+
+# winget exit codes that mean "nothing to do" rather than failure.
+$okCodes = @{
+    -1978335135 = 'package already installed'   # 0x8A150061
+    -1978335189 = 'no applicable upgrade'       # 0x8A15002B
+}
+
+function Write-Step([string]$Message) {
+    Write-Host "[winget] $Message"
+}
+
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Warning 'winget was not found on PATH. Install/repair "App Installer" (Microsoft Store), then re-run: chezmoi apply'
+    Write-Warning 'Skipping Windows package installation.'
+    exit 0
+}
+
+if ($packages.Count -eq 0) {
+    Write-Step 'packages.windows.winget is empty; nothing to do.'
+    exit 0
+}
+
+$failed = New-Object System.Collections.Generic.List[string]
+$newlyInstalled = New-Object System.Collections.Generic.List[string]
+$alreadyPresent = 0
+
+foreach ($p in $packages) {
+    $id = $p.Id
+    if ([string]::IsNullOrWhiteSpace($id)) { continue }
+
+    $scope = $p.Scope
+    if ($scope -and ($scope -ne 'user') -and ($scope -ne 'machine')) {
+        Write-Warning "[winget] $id has invalid scope '$scope' (expected user or machine); installing with the default scope."
+        $scope = ''
+    }
+
+    & winget list --id $id --exact --accept-source-agreements --disable-interactivity | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        $alreadyPresent++
+        Write-Step "ok       $id (already installed)"
+        continue
+    }
+
+    $label = $id
+    if ($scope) { $label = "$id (scope $scope)" }
+    if ($p.Note) { Write-Step "install  $label -- $($p.Note)" } else { Write-Step "install  $label" }
+
+    $wingetArgs = @(
+        'install', '--id', $id, '--exact', '--source', 'winget',
+        '--accept-package-agreements', '--accept-source-agreements',
+        '--disable-interactivity'
+    )
+    if ($scope) { $wingetArgs += @('--scope', $scope) }
+
+    & winget @wingetArgs
+    $code = $LASTEXITCODE
+
+    if ($code -eq 0) {
+        $newlyInstalled.Add($id)
+    } elseif ($okCodes.ContainsKey($code)) {
+        $alreadyPresent++
+        Write-Step ("ok       {0} ({1})" -f $id, $okCodes[$code])
+    } elseif ($(& winget list --id $id --exact --accept-source-agreements --disable-interactivity | Out-Null; $LASTEXITCODE -eq 0)) {
+        # Some installers (e.g. WezTerm's Inno Setup) finish the install but
+        # return a non-zero code. Trust what winget now sees as installed.
+        $newlyInstalled.Add($id)
+        Write-Step ("ok       {0} (installer exit 0x{1:X8}, but the package is now installed)" -f $id, $code)
+    } else {
+        $hex = '0x{0:X8}' -f $code
+        Write-Warning "[winget] FAILED $label (exit code $hex); continuing."
+        $failed.Add(("{0}  [exit {1}]  retry: winget install --id {0} --exact --source winget{2}" -f $id, $hex, $(if ($scope) { " --scope $scope" } else { '' })))
+    }
+}
+
+Write-Host ''
+Write-Step ("summary: {0} already installed, {1} newly installed, {2} failed" -f $alreadyPresent, $newlyInstalled.Count, $failed.Count)
+if ($newlyInstalled.Count -gt 0) {
+    Write-Step ('installed: ' + ($newlyInstalled -join ', '))
+    Write-Step 'Open a new terminal so PATH changes from new installs are picked up.'
+}
+if ($failed.Count -gt 0) {
+    Write-Warning '[winget] The following packages failed to install:'
+    foreach ($f in $failed) { Write-Warning "  $f" }
+    Write-Warning '[winget] Common causes: UAC prompt declined, machine-scope installer without admin, package blocked by IT policy, or no network.'
+    Write-Warning '[winget] chezmoi will not re-run this script until the package list changes; run the retry commands above by hand.'
+}
+exit 0
+{{ end -}}

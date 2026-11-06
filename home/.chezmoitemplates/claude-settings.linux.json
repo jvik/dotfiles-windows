@@ -1,0 +1,102 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(shellcheck*)",
+      "Bash(shfmt -d*)",
+      "Bash(bash -n *)",
+      "Bash(fish -n *)",
+      "Bash(luacheck*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.config/Bitwarden CLI/**)",
+      "Read(~/.kube/config)",
+      "Read(~/.docker/**)",
+      "Read(//mnt/c/Users/*/AppData/Roaming/Bitwarden/**)",
+      "Read(//mnt/c/Users/*/AppData/Roaming/Bitwarden CLI/**)",
+      "Read(//mnt/c/Users/*/AppData/Roaming/GitHub CLI/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": false,
+    "filesystem": {
+      "denyRead": [
+        "/mnt"
+      ],
+      "allowRead": [
+        "/mnt/wsl"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.ssh/id_ed25519",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.ssh/id_rsa",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.ssh/id_ecdsa",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.gnupg",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/gh",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.docker",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.kube/config",
+          "mode": "deny"
+        },
+        {
+          "path": "~/.config/Bitwarden CLI",
+          "mode": "deny"
+        }
+      ],
+      "envVars": [
+        {
+          "name": "GITHUB_TOKEN",
+          "mode": "deny"
+        },
+        {
+          "name": "BW_SESSION",
+          "mode": "deny"
+        }
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "api.github.com",
+        "pypi.org",
+        "api.anthropic.com",
+        "archive.ubuntu.com",
+        "crates.io",
+        "files.pythonhosted.org",
+        "github.com",
+        "index.crates.io",
+        "registry.yarnpkg.com",
+        "yarnpkg.com",
+        "security.ubuntu.com",
+        "static.crates.io",
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "formulae.brew.sh",
+        "ghcr.io",
+        "packages.microsoft.com"
+      ]
+    }
+  }
+}

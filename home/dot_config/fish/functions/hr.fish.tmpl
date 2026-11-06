@@ -1,0 +1,16 @@
+{{- /* Only with the herdr + agent-sandbox workflow; renders empty (not deployed) otherwise. */ -}}
+{{- if .features.agentSandbox -}}
+# herdr keeps a background server, so plain `herdr` only reattaches to whatever
+# workspaces already exist. Make sure one is rooted in the current directory,
+# otherwise agent-sandbox (prefix+a) runs in an old workspace, often $HOME, and
+# refuses to start.
+function hr -d "Attach to herdr with a workspace for the current directory"
+    # Without a running server there is nothing to check: herdr creates its
+    # startup workspace in the current directory itself.
+    if herdr pane list >/dev/null 2>&1
+        and not herdr pane list | grep -qF "\"cwd\":\"$PWD\""
+        herdr workspace create --cwd $PWD --focus >/dev/null
+    end
+    herdr $argv
+end
+{{ end -}}

@@ -1,0 +1,22 @@
+# Editor / OS cruft
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# chezmoi merge leftovers (`<target>.base`, created next to the target, but
+# can end up here when merging a repo-local file)
+*.base
+*.orig
+
+# Local-only agent settings for this repo
+.claude/settings.local.json
+
+# Secrets and machine-local material never belong in a public dotfiles repo.
+# A corporate root CA goes in ~/.config/certs/ on the machine, not here.
+.env
+*.crt
+*.cer
+*.pem
+*.key

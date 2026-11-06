@@ -1,0 +1,72 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# Shell setup for WSL: fish (apt, release-4 PPA) as the login shell, Fisher and
+# the plugins listed in ~/.config/fish/fish_plugins, and tpm for tmux.
+# Re-runs when the plugin list changes:
+# fish_plugins hash: {{ include "dot_config/fish/fish_plugins" | sha256sum }}
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [shell] %s\n' "$*"; }
+
+brew_bin=/home/linuxbrew/.linuxbrew/bin/brew
+if [ -x "$brew_bin" ]; then
+    eval "$("$brew_bin" shellenv)"
+fi
+
+# --- Login shell ------------------------------------------------------------------
+# apt installs fish to /usr/bin/fish (not /bin/fish, which only works via usrmerge).
+fish_bin=/usr/bin/fish
+if [ ! -x "$fish_bin" ]; then
+    echo "[shell] $fish_bin not found; it is installed by the apt script" >&2
+    exit 1
+fi
+
+if ! grep -qx "$fish_bin" /etc/shells; then
+    log "adding $fish_bin to /etc/shells"
+    echo "$fish_bin" | sudo tee -a /etc/shells >/dev/null
+fi
+
+user="$(id -un)"
+current_shell="$(getent passwd "$user" | cut -d: -f7)"
+if [ "$current_shell" != "$fish_bin" ]; then
+    log "changing login shell of $user to $fish_bin"
+    sudo chsh -s "$fish_bin" "$user"
+fi
+
+# --- Fisher + plugins ---------------------------------------------------------------
+# `fisher update` installs everything in fish_plugins (including Fisher itself)
+# and removes plugins that are no longer listed. On the first run Fisher is
+# bootstrapped from upstream main, as before.
+log "fisher update"
+fish -c '
+    if not functions -q fisher
+        curl -fsSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
+        or exit 1
+    end
+    fisher update
+'
+
+# --- tmux plugin manager ------------------------------------------------------------
+tpm_dir="$HOME/.config/tmux/plugins/tpm"
+if [ ! -d "$tpm_dir" ]; then
+    log "installing tpm"
+    git clone --depth 1 https://github.com/tmux-plugins/tpm "$tpm_dir"
+fi
+if [ -x "$tpm_dir/bin/install_plugins" ] && [ -f "$HOME/.config/tmux/tmux.conf" ]; then
+    log "installing tmux plugins"
+    "$tpm_dir/bin/install_plugins" || log "tpm install_plugins failed (ignored; use prefix + I inside tmux)"
+fi
+
+# --- fd / bat names -----------------------------------------------------------------
+# brew provides fd and bat under their real names (fzf.fish, sesh and LazyVim
+# expect those). Only if they come from apt instead (fdfind/batcat) link them.
+mkdir -p "$HOME/.local/bin"
+if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
+    ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+fi
+if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
+    ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
+fi
+
+log "done"
+{{ end -}}

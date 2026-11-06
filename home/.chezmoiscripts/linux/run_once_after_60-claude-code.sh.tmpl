@@ -1,0 +1,29 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# Claude Code in WSL via the native installer (~/.local/bin/claude ->
+# ~/.local/share/claude/versions/, the paths agent-sandbox binds). The native
+# install updates itself, so this only runs once and topgrade leaves it alone.
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [claude] %s\n' "$*"; }
+
+# Ignore a Windows-side claude reached through the appended Windows PATH
+# (/mnt/c/...); that install has its own config and can't be sandboxed.
+existing="$(command -v claude 2>/dev/null || true)"
+case "$existing" in
+    "" | /mnt/*) ;;
+    *)
+        log "Claude Code already installed at $existing"
+        exit 0
+        ;;
+esac
+if [ -x "$HOME/.local/bin/claude" ]; then
+    log "Claude Code already installed at $HOME/.local/bin/claude"
+    exit 0
+fi
+
+log "installing Claude Code (native installer)"
+curl -fsSL https://claude.ai/install.sh | bash
+
+log "done"
+{{ end -}}

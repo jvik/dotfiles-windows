@@ -1,0 +1,76 @@
+# herdr — terminal workspace manager for coding agents (WSL only).
+# Full reference: `herdr --default-config`. Apply edits: `herdr server reload-config`.
+#
+# Agents run through agent-sandbox (bubblewrap). The sandbox clears HERDR_* and
+# hides ~/.config/herdr, so an agent cannot reach the herdr socket and drive
+# other, unsandboxed panes. Herdr still detects claude/copilot through bwrap,
+# because they are the pane's foreground process.
+
+onboarding = false
+
+[theme]
+# Follow the terminal's palette; WezTerm on Windows switches with the Windows
+# light/dark setting.
+name = "terminal"
+
+[keys]
+# Same prefix as tmux, so don't run herdr inside tmux (or the other way round).
+# Direct alt chords are avoided because WezTerm owns shift+alt and
+# ctrl+shift+alt for its own panes.
+prefix = "ctrl+a"
+
+# Agent navigation across all workspaces; unbound by default.
+# focus_agent jumps by sidebar row, so prefix+alt+2 is the second agent listed.
+next_agent = "prefix+]"
+previous_agent = "prefix+["
+focus_agent = "prefix+alt+1..9"
+
+# Workspace ("spaces" in the sidebar) navigation; unbound by default.
+next_workspace = "prefix+shift+j"
+previous_workspace = "prefix+shift+k"
+
+# Sandboxed agents in a new pane in the current project; the pane closes when
+# the agent exits. agent-sandbox refuses to start with $HOME as the project, so
+# on failure the pane waits for Enter instead of vanishing with the error.
+[[keys.command]]
+key = "prefix+a"
+type = "pane"
+command = '''sh -c 'agent-sandbox claude || { printf "\nPress Enter to close"; read x; }' '''
+
+[[keys.command]]
+key = "prefix+shift+a"
+type = "pane"
+command = '''sh -c 'agent-sandbox copilot || { printf "\nPress Enter to close"; read x; }' '''
+
+# New worktree as its own workspace with a sandboxed Claude; asks for the branch.
+# Runs in a normal pane, which has the herdr socket the sandbox hides from agents.
+[[keys.command]]
+key = "prefix+w"
+type = "pane"
+command = '''sh -c 'printf "Branch: "; read b; new-worktree "$b" || { printf "\nPress Enter to close"; read x; }' '''
+
+[[keys.command]]
+key = "prefix+alt+g"
+type = "popup"
+command = "lazygit"
+width = "90%"
+height = "90%"
+
+[ui]
+# Ask for workspace names; the generated ones are hard to tell apart in the sidebar.
+prompt_new_workspace_name = true
+prompt_new_tab_name = false
+status_indicators = "symbols"
+
+[ui.toast]
+# In-app toast when a background agent finishes or blocks. "system" would call
+# notify-send, and WSL has no D-Bus notification daemon to receive it.
+# "terminal" would hand the toast to WezTerm as a desktop notification instead;
+# untested here, so stay with the in-app bubble.
+delivery = "herdr"
+
+[session]
+# Restore would relaunch agents as `claude --resume <id>` directly, bypassing
+# agent-sandbox. The integration hooks could not reach the socket from inside
+# the sandbox anyway, so leave both restore and `herdr integration install` off.
+resume_agents_on_restore = false

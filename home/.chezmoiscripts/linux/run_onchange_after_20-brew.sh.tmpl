@@ -1,0 +1,54 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# General CLI tools via Homebrew on Linux. A Brewfile is generated from
+# home/.chezmoidata/packages.yaml (packages.wsl.brew) into a temp file, so the
+# rendered script, and therefore chezmoi's run_onchange hash, changes with the list.
+#
+# Installs only: upgrades are topgrade's job (`sysup`), and nothing is removed.
+# Formulae that are installed but no longer listed are reported; set
+# BREW_BUNDLE_CLEANUP=1 when running `chezmoi apply` to uninstall them.
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [brew] %s\n' "$*"; }
+
+brew_bin=/home/linuxbrew/.linuxbrew/bin/brew
+if [ ! -x "$brew_bin" ]; then
+    echo "[brew] $brew_bin not found; the run_once prereqs script should have installed it" >&2
+    exit 1
+fi
+eval "$("$brew_bin" shellenv)"
+export HOMEBREW_NO_ENV_HINTS=1
+
+brewfile="$(mktemp --suffix=.Brewfile)"
+trap 'rm -f "$brewfile"' EXIT
+
+cat >"$brewfile" <<'BREWFILE'
+{{- range .packages.wsl.brew }}
+{{- if kindIs "map" . }}
+{{- if hasKey . "tap" }}
+tap {{ .tap | quote }}
+{{- end }}
+brew {{ .name | quote }}
+{{- else }}
+brew {{ . | quote }}
+{{- end }}
+{{- end }}
+BREWFILE
+
+log "brew bundle install --no-upgrade"
+brew bundle install --file="$brewfile" --no-upgrade
+
+if [ "${BREW_BUNDLE_CLEANUP:-0}" = 1 ]; then
+    log "brew bundle cleanup --force (BREW_BUNDLE_CLEANUP=1)"
+    brew bundle cleanup --file="$brewfile" --force
+else
+    # Without --force this only lists what cleanup would remove.
+    extra="$(brew bundle cleanup --file="$brewfile" 2>/dev/null || true)"
+    if [ -n "$extra" ]; then
+        log "not in packages.yaml (kept; BREW_BUNDLE_CLEANUP=1 removes them):"
+        printf '%s\n' "$extra"
+    fi
+fi
+
+log "done"
+{{ end -}}

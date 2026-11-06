@@ -1,0 +1,34 @@
+{
+    // Repo-only editor settings (never deployed: .vscode lives outside home/).
+    // LF everywhere so files edited from Windows stay valid in WSL.
+    "files.eol": "\n",
+    "files.encoding": "utf8",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "files.associations": {
+        // chezmoi templates: highlight by the underlying file type
+        "**/.chezmoi.yaml.tmpl": "yaml",
+        "**/*.yaml.tmpl": "yaml",
+        "**/*.toml.tmpl": "toml",
+        "**/*.json.tmpl": "json",
+        "**/*.jsonc.tmpl": "jsonc",
+        "**/*.lua.tmpl": "lua",
+        "**/*.fish.tmpl": "fish",
+        "**/*.sh.tmpl": "shellscript",
+        "**/*.ps1.tmpl": "powershell",
+        "**/.chezmoiignore": "ignore",
+        "**/.chezmoiremove": "ignore",
+        "**/.chezmoitemplates/*.json": "json",
+        "**/modify_*.json": "jsonc",
+        "**/dot_gitconfig*": "ini",
+        "**/dot_wslconfig*": "ini",
+        "**/.chezmoiroot": "plaintext"
+    },
+    // Windows PowerShell 5.1 reads BOM-less scripts as ANSI: keep .ps1 pure ASCII.
+    "[powershell]": {
+        "files.encoding": "utf8"
+    },
+    "[markdown]": {
+        "files.trimTrailingWhitespace": false
+    }
+}

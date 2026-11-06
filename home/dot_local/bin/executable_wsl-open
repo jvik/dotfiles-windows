@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# wsl-open: open URLs and files from WSL with the Windows default application.
+# Used as $BROWSER, the fish `open` alias and gh's browser. Replaces wslu's
+# wslview (discontinued).
+#
+#   wsl-open https://example.com     URL -> Windows default browser
+#   wsl-open report.pdf              file -> its default Windows app
+#   wsl-open .                       directory -> Explorer
+#
+# Uses absolute paths to the Windows binaries: /etc/wsl.conf sets
+# appendWindowsPath=false, so they are not on PATH outside fish.
+set -euo pipefail
+
+powershell=/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
+explorer=/mnt/c/Windows/explorer.exe
+
+if [ $# -eq 0 ]; then
+    echo "usage: wsl-open <url|file|dir>..." >&2
+    exit 2
+fi
+
+status=0
+for target in "$@"; do
+    if [ -e "$target" ]; then
+        # Local path (Linux or /mnt/c): convert to a Windows path
+        # (\\wsl.localhost\<distro>\... or C:\...) and let Explorer pick the
+        # default app. explorer.exe exits 1 even on success, so ignore it.
+        winpath=$(wslpath -w "$(realpath -- "$target")")
+        (cd /mnt/c && "$explorer" "$winpath") || true
+    elif [[ "$target" =~ ^[A-Za-z][A-Za-z0-9+.-]*: ]]; then
+        # URL (https:, mailto:, ms-settings:, ...). Single-quote it for
+        # PowerShell, doubling any embedded single quotes. Run from /mnt/c so
+        # the Windows process doesn't start in a \\wsl.localhost cwd.
+        quoted=${target//\'/\'\'}
+        if ! (cd /mnt/c && "$powershell" -NoProfile -NonInteractive -Command "Start-Process '$quoted'"); then
+            echo "wsl-open: failed to open $target" >&2
+            status=1
+        fi
+    else
+        echo "wsl-open: no such file and not a URL: $target" >&2
+        status=1
+    fi
+done
+exit "$status"

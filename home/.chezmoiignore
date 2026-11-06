@@ -1,0 +1,60 @@
+{{- /*
+  Target paths chezmoi must NOT manage on this machine. Patterns are target
+  paths relative to the destination dir (%USERPROFILE% or ~), not source names.
+
+  The same source is applied twice: by chezmoi.exe on Windows and by chezmoi
+  inside WSL. Branch ONLY on the data from .chezmoi.yaml.tmpl (.isWindows /
+  .isWSL), never on .chezmoi.os, so the WSL variant can be tested from Windows
+  with a hand-written config.
+
+  Note: "!pattern" lines are exclusions and win over every ignore pattern.
+
+  Repo-only files (README.md, AGENTS.md, CLAUDE.md, justfile, bootstrap
+  scripts, .github, .vscode, ...) live at the repo root, outside home/
+  (.chezmoiroot), so they never need listing here.
+*/ -}}
+
+{{- if not .isWindows }}
+# ---- Windows-only targets (skipped everywhere except native Windows) ----
+.chezmoiscripts/windows/**
+.wslconfig
+.wezterm.lua
+AppData
+AppData/**
+Documents
+Documents/**
+{{- end }}
+
+{{- if not .isWSL }}
+# ---- WSL-only targets (skipped everywhere except WSL) ----
+.chezmoiscripts/linux/**
+# Login-shell profile: puts Homebrew on PATH for `bash -lc`, which is how the
+# Windows-side topgrade finds and runs topgrade inside WSL.
+.profile
+# Linux user config: fish, tmux (+ tpm external), nvim, mise, herdr, gh,
+# topgrade, fastfetch, ... Windows apps keep their config in AppData instead
+# (%APPDATA%\topgrade.toml, %APPDATA%\GitHub CLI, ...).
+.config/**
+# ~/.local/bin (agent-sandbox, new-worktree, wsl-open, ...) and ~/.local/share
+.local/**
+scripts
+scripts/**
+# Shared by both sides even though it lives under .config: Git for Windows
+# also reads %USERPROFILE%\.config\git\ (ignore, allowed_signers, the
+# personal include). `.config/**` also matches `.config` itself, and an
+# ignored directory hides everything below it, so un-ignore the dir too.
+!.config
+!.config/git
+!.config/git/**
+{{- end }}
+
+{{- if not (and .isWSL .features.agentSandbox) }}
+# ---- features.agentSandbox: herdr + agent-sandbox + new-worktree (WSL) ----
+# (hr.fish, the as* abbrs and herdr in mise/config.toml gate themselves in
+# their templates; these are plain files, so they are gated here.)
+# ~/.local/bin/push-ssh-key and wsl-open are not part of the feature.
+.local/bin/agent-sandbox
+.local/bin/new-worktree
+.config/herdr
+.config/herdr/**
+{{- end }}

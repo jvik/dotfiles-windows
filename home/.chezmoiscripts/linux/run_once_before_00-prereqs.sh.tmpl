@@ -1,0 +1,58 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# Base prerequisites for WSL Ubuntu, run once before chezmoi writes any files:
+# apt build tools + Homebrew (Linuxbrew). Replaces the old run_once_01 Ansible
+# installer (pip3 --user is blocked by PEP 668 on 24.04, and its `ping 8.8.8.8`
+# gate silently skipped on networks that drop ICMP).
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [prereqs] %s\n' "$*"; }
+
+# Corporate TLS inspection (optional): drop the root CA(s) as *.crt files in
+# ~/.config/certs before the first apply, and they are trusted system-wide
+# before Homebrew is downloaded over HTTPS. The apt script repeats this so
+# certificates added later are picked up too.
+install_corp_certs() {
+    local cert changed=0
+    shopt -s nullglob
+    for cert in "$HOME"/.config/certs/*.crt; do
+        local dest="/usr/local/share/ca-certificates/$(basename "$cert")"
+        if ! sudo cmp -s "$cert" "$dest"; then
+            log "installing corporate CA $(basename "$cert")"
+            sudo install -m 0644 "$cert" "$dest"
+            changed=1
+        fi
+    done
+    shopt -u nullglob
+    if [ "$changed" = 1 ]; then
+        sudo update-ca-certificates
+    fi
+}
+
+log "installing apt prerequisites (sudo)"
+sudo -v
+install_corp_certs
+sudo apt-get update
+# Homebrew on Linux needs build-essential, procps, curl, file and git. The rest
+# is needed by later scripts (add-apt-repository, docker's signed repo, unzip
+# for mise/mason downloads).
+sudo apt-get install -y \
+    build-essential procps curl file git \
+    ca-certificates gnupg software-properties-common unzip
+
+mkdir -p "$HOME/.local/bin"
+
+brew_bin=/home/linuxbrew/.linuxbrew/bin/brew
+if [ -x "$brew_bin" ]; then
+    log "Homebrew already installed at $brew_bin"
+else
+    log "installing Homebrew (NONINTERACTIVE)"
+    # The installer only uses non-interactive sudo in NONINTERACTIVE mode, so
+    # refresh the sudo timestamp first.
+    sudo -v
+    NONINTERACTIVE=1 /bin/bash -c \
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+log "done"
+{{ end -}}

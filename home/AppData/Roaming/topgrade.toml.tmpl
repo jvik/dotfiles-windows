@@ -1,0 +1,37 @@
+{{- if .isWindows -}}
+# %APPDATA%\topgrade.toml -- Windows-side topgrade (managed by chezmoi).
+#
+# One `topgrade` run on Windows updates both sides:
+#   winget -> Windows apps (wezterm, Bitwarden, PowerToys, topgrade itself, ...)
+#   wsl    -> runs topgrade inside each WSL distro that has it installed
+#             ({{ .wslDistro }}), which then uses its own ~/.config/topgrade.toml
+#             (apt, brew, mise, fish/tmux plugins). topgrade looks for it
+#             with `wsl -d <distro> bash -lc "which topgrade"`; the WSL-side
+#             ~/.profile (chezmoi: home/dot_profile) puts Homebrew on that
+#             login PATH. Check: wsl -d {{ .wslDistro }} bash -lc 'which topgrade mise'
+
+[misc]
+# Run non-interactively, matching the old Ansible update playbook's behavior.
+assume_yes = true
+# Tidy up caches after upgrading.
+cleanup = true
+# topgrade is installed & upgraded via winget (topgrade-rs.topgrade), and the
+# winget step below already upgrades it -- don't also let it try to replace its
+# own binary.
+no_self_update = true
+# Only touch the package managers actually in use here. Without this, topgrade
+# probes and tries to update every tool it can detect on the system.
+# Deliberately NOT included:
+#   wsl_update  (`wsl --update`): the WSL version is IT's business on a managed
+#               laptop and the step usually fails without admin.
+#   scoop, chocolatey, powershell modules, Windows Update: not used / owned by IT.
+# winget runs without sudo (winget_use_sudo is false by default; sudo for
+# Windows is normally policy-disabled), so machine-scope upgrades may show UAC.
+only = ["winget", "wsl"]
+
+[windows]
+# topgrade.exe is a winget portable package that the winget step upgrades
+# while topgrade itself is running; a running .exe can't be replaced, so let
+# topgrade rename itself for the duration of the run.
+self_rename = true
+{{ end -}}

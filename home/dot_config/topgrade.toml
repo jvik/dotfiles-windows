@@ -1,0 +1,17 @@
+# topgrade inside WSL (~/.config/topgrade.toml). `sysup` runs it here; the
+# Windows-side topgrade's `wsl` step also runs it inside Ubuntu, so one `sysup`
+# on Windows updates both sides.
+
+[misc]
+# Run non-interactively (sudo still prompts for the apt step).
+assume_yes = true
+# Tidy up caches after upgrading (brew cleanup, apt autoremove, ...).
+cleanup = true
+# topgrade is installed & upgraded via Homebrew (packages.yaml) — don't
+# also let it try to replace its own binary.
+no_self_update = true
+# Only touch the package managers actually in use here: apt via `system`,
+# linuxbrew, mise, fisher plugins (the `shell` step) and tmux plugins (tpm).
+# Without this, topgrade probes and tries to update every tool it can detect.
+# Claude Code is left out on purpose: the native install updates itself.
+only = ["system", "brew_formula", "mise", "shell", "tmux"]

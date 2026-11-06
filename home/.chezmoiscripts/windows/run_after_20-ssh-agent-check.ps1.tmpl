@@ -1,0 +1,54 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_20-ssh-agent-check (runs on every apply; read-only)
+#
+# Bitwarden Desktop's SSH agent serves \\.\pipe\openssh-ssh-agent. Only one
+# process can own that pipe, so the built-in Windows "OpenSSH Authentication
+# Agent" service (ssh-agent) must be stopped and must not start automatically.
+# WSL reaches the Bitwarden agent through wsl2-ssh-agent, and Windows git uses
+# C:/Windows/System32/OpenSSH/ssh.exe, both via that pipe.
+#
+# This script only CHECKS. It never elevates; it prints the exact command to
+# run from an elevated PowerShell if something needs fixing. It always exits 0.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+$fixCommand = 'Stop-Service -Name ssh-agent -Force; Set-Service -Name ssh-agent -StartupType Disabled'
+
+$svc = Get-Service -Name 'ssh-agent' -ErrorAction SilentlyContinue
+if ($null -eq $svc) {
+    Write-Host '[ssh-agent] Windows OpenSSH agent service not present: OK (Bitwarden can own the agent pipe).'
+} else {
+    $status = [string]$svc.Status
+    $startType = [string]$svc.StartType
+    if (($status -eq 'Running') -or ($startType -eq 'Automatic')) {
+        Write-Warning "[ssh-agent] The Windows 'ssh-agent' service is $status / $startType."
+        Write-Warning '[ssh-agent] It competes with Bitwarden for \\.\pipe\openssh-ssh-agent, so SSH keys and commit signing will not use Bitwarden.'
+        Write-Warning '[ssh-agent] Fix it once from an ELEVATED PowerShell (Run as administrator):'
+        Write-Host ''
+        Write-Host "    $fixCommand"
+        Write-Host ''
+        Write-Warning '[ssh-agent] Or from this (non-elevated) shell, which opens a UAC prompt:'
+        Write-Host ''
+        Write-Host ("    Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile','-Command','{0}'" -f $fixCommand)
+        Write-Host ''
+        Write-Warning '[ssh-agent] Then quit and restart Bitwarden so it can create the pipe.'
+    } else {
+        Write-Host "[ssh-agent] Windows OpenSSH agent service is $status / $startType`: OK."
+    }
+}
+
+# Informational: is anything serving the agent pipe right now?
+$pipeFound = $false
+try {
+    $pipeFound = Test-Path -LiteralPath '\\.\pipe\openssh-ssh-agent'
+} catch {
+    $pipeFound = $false
+}
+if (-not $pipeFound) {
+    Write-Host '[ssh-agent] Note: \\.\pipe\openssh-ssh-agent is not present. Start Bitwarden Desktop, unlock it and enable'
+    Write-Host '[ssh-agent]       Settings > SSH agent ("Enable SSH agent") so ssh, git signing and WSL can use your keys.'
+}
+exit 0
+{{ end -}}

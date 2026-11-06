@@ -1,0 +1,37 @@
+{{ if .isWSL -}}
+#!/usr/bin/env bash
+# Version-pinned toolchains and CLIs via mise (~/.config/mise/config.toml):
+# kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI.
+# Re-runs whenever the rendered config changes:
+# config.toml hash: {{ includeTemplate "dot_config/mise/config.toml.tmpl" . | sha256sum }}
+set -euo pipefail
+
+log() { printf '\033[1;34m==>\033[0m [mise] %s\n' "$*"; }
+
+brew_bin=/home/linuxbrew/.linuxbrew/bin/brew
+if [ -x "$brew_bin" ]; then
+    eval "$("$brew_bin" shellenv)"
+fi
+if ! command -v mise >/dev/null 2>&1; then
+    echo "[mise] mise not found; it is installed by brew (packages.wsl.brew)" >&2
+    exit 1
+fi
+
+# The github: backend talks to the GitHub API, which allows 60 unauthenticated
+# requests an hour. Reuse the gh login when there is one.
+if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+    if token="$(gh auth token 2>/dev/null)" && [ -n "$token" ]; then
+        export GITHUB_TOKEN="$token"
+    fi
+fi
+
+export MISE_YES=1
+config="$HOME/.config/mise/config.toml"
+cd "$HOME"
+log "mise trust $config"
+mise trust "$config"
+log "mise install"
+mise install
+
+log "done"
+{{ end -}}

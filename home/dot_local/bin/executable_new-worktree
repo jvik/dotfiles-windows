@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# new-worktree — create a git worktree as a herdr workspace and start a
+# sandboxed agent in it.
+#
+#   new-worktree [--from REF] [--agent claude|copilot] <branch>
+#
+# Run it from a herdr pane (or any shell inside herdr), NOT from inside
+# agent-sandbox: the sandbox hides the herdr socket and cannot write outside
+# the project, so an agent cannot create sibling worktrees itself.
+#
+# herdr creates the worktree and workspace; the agent is started through
+# agent-sandbox rather than `herdr agent start`, which would run it unsandboxed.
+# WSL only; keep the repository in the WSL home, not on /mnt/c.
+
+set -euo pipefail
+
+base="origin/main"
+agent="claude"
+
+while (($#)); do
+    case "$1" in
+        --from) base="${2:?--from needs a ref}"; shift ;;
+        --agent) agent="${2:?--agent needs claude or copilot}"; shift ;;
+        -h | --help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -*) echo "new-worktree: unknown option $1" >&2; exit 2 ;;
+        *) break ;;
+    esac
+    shift
+done
+
+branch="${1:?usage: new-worktree [--from REF] [--agent claude|copilot] <branch>}"
+
+if [[ "${HERDR_ENV:-}" != 1 ]]; then
+    echo "new-worktree: run this inside herdr (HERDR_ENV is not set)" >&2
+    exit 1
+fi
+
+for cmd in herdr jq agent-sandbox; do
+    if ! command -v "$cmd" >/dev/null; then
+        echo "new-worktree: $cmd not found on PATH" >&2
+        exit 1
+    fi
+done
+
+# Base new branches on the remote tip, not on whatever is checked out here.
+if [[ "$base" == origin/* ]]; then
+    git fetch --quiet origin "${base#origin/}" || true
+fi
+
+out=$(herdr worktree create --branch "$branch" --base "$base" --label "${branch##*/}" --focus)
+pane=$(jq -r '.result.root_pane.pane_id // empty' <<<"$out")
+
+if [[ -z "$pane" ]]; then
+    echo "new-worktree: worktree created, but no pane id in herdr's reply; start the agent manually" >&2
+    exit 0
+fi
+
+herdr pane run "$pane" "agent-sandbox $agent" >/dev/null
+echo "new-worktree: opened \"${branch##*/}\" with sandboxed $agent"

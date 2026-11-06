@@ -1,0 +1,42 @@
+# Global mise tools for WSL (~/.config/mise/config.toml), managed by chezmoi.
+# The central place for version-pinned toolchains and CLIs. General CLIs come
+# from brew (packages.yaml), base OS bits from apt. Don't install the same tool
+# from two places (PATH shadowing).
+#
+# Applied by run_onchange_after_30-mise.sh (`mise install`), updated by
+# topgrade (`sysup`). "latest" floats; pin a version (e.g. kubectl = "1.33")
+# where it has to match something, like the cluster's kubectl version skew.
+
+[tools]
+# Kubernetes / IaC (kubectl and helm were brew; terraform replaces tfenv, and
+# per-project versions go in a mise.toml next to the code).
+kubectl = "latest"
+helm = "latest"
+terraform = "latest"
+
+# Node (replaces nvm). Also the runtime for the npm: tools below.
+node = "lts"
+
+# NAV's Copilot CLI wrapper, used by the `cop` abbr.
+"github:navikt/cplt" = "latest"
+
+# GitHub Copilot CLI.
+"npm:@github/copilot" = "latest"
+
+# Bridges the Windows ssh-agent pipe (\\.\pipe\openssh-ssh-agent, served by
+# Bitwarden Desktop) into WSL via powershell.exe. The x86_64 release asset is a
+# bare binary named just `wsl2-ssh-agent` (arm64: `wsl2-ssh-agent-arm64`), which
+# mise can't autodetect, hence the explicit asset_pattern.
+"github:mame/wsl2-ssh-agent" = { version = "latest", asset_pattern = "wsl2-ssh-agent", bin = "wsl2-ssh-agent" }
+{{- if .features.agentSandbox }}
+
+# herdr: agent multiplexer (hr, new-worktree, agent-sandbox workflow).
+# Release assets are bare binaries (herdr-linux-x86_64). Update it through mise,
+# not `herdr update` (that only manages herdr's own installer).
+"github:herdrdev/herdr" = { version = "latest", bin = "herdr" }
+
+# OpenAI Codex CLI, for the `ascodex` abbr / `agent-sandbox codex`. Not
+# installed by default (never provisioned before; org policy decides which
+# agents are allowed). Uncomment to use:
+# "npm:@openai/codex" = "latest"
+{{- end }}

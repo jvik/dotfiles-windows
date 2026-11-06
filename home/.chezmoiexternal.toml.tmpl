@@ -1,0 +1,18 @@
+{{- /*
+  External sources pulled by chezmoi. Branch only on .isWindows / .isWSL.
+
+  fisher is deliberately NOT here: it installs itself and the plugins listed
+  in ~/.config/fish/fish_plugins from a run_onchange_ script (`fisher update`).
+*/ -}}
+{{- if .isWSL }}
+# tmux plugin manager. tmux.conf ends with `run '~/.config/tmux/plugins/tpm/tpm'`;
+# tpm then clones the other @plugin entries next to it (prefix + I), which
+# chezmoi leaves alone. A real git clone (not an archive) so tpm's own
+# `prefix + U` can update it too; chezmoi re-pulls it weekly on apply.
+[".config/tmux/plugins/tpm"]
+    type = "git-repo"
+    url = "https://github.com/tmux-plugins/tpm.git"
+    refreshPeriod = "168h"
+    clone.args = ["--depth", "1"]
+    pull.args = ["--ff-only"]
+{{- end }}

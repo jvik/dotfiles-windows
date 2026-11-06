@@ -1,0 +1,6 @@
+{{- /* gpg.ssh.allowedSignersFile: lets `git log --show-signature` verify our own
+       SSH-signed commits. Renders empty (file not deployed) without a signing key. */ -}}
+{{- if .signingKey -}}
+{{ .email }} namespaces="git" {{ .signingKey }}
+{{ .personalEmail }} namespaces="git" {{ .signingKey }}
+{{ end -}}

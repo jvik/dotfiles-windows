@@ -1,0 +1,19 @@
+# Local configuration example
+# Copy this file to local.fish and customize as needed
+# local.fish is gitignored and won't be tracked
+
+# Example: Machine-specific PATH additions
+# fish_add_path -p /custom/path
+
+# Example: Local environment variables
+# set -gx CUSTOM_VAR value
+
+# Machine-specific settings (this is a work machine)
+set -gx PRIVATE_MACHINE false
+
+# GitHub org used by ghfco, krepo and krepo-update. Normally set from the
+# chezmoi data value githubOrg in env.fish; override it here if needed.
+# set -gx gh_org my-org
+
+# Command used to open a repo URL (defaults to wsl-open if unset)
+# set -gx gh_repo_browser wsl-open

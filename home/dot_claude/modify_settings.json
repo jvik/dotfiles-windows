@@ -1,0 +1,49 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  Claude Code user settings, merged rather than owned.
+  Windows chezmoi writes %USERPROFILE%\.claude\settings.json (native Claude Code);
+  WSL chezmoi writes ~/.claude/settings.json (Claude Code inside WSL). The two
+  installs never share settings, so both sides apply this file.
+
+  Merge order: common * osOverlay * current.
+  - permissions.allow/deny of common and overlay are concatenated (not replaced),
+    so the overlay only lists its OS-specific rules.
+  - The current file wins recursively; arrays in it replace the defaults
+    (including empty arrays), so new default rules never reach a machine that
+    already has that array. Never `chezmoi re-add` this file.
+  - When nothing is missing, the file is passed through byte for byte so
+    Claude Code's own formatting and edits ("always allow") are kept.
+
+  WSL sandbox (claude-settings.linux.json): sandbox.enabled with
+  autoAllowBashIfSandboxed = false, i.e. the sandbox is extra protection, not
+  a replacement for the Bash permission prompt. Without Claude Code's optional
+  seccomp filter, sandboxed commands can still open Unix sockets: the WSL
+  interop socket (starts cmd.exe/powershell.exe on Windows, unsandboxed), the
+  docker socket (root in the distro) and the wsl2-ssh-agent socket. Only set
+  autoAllowBashIfSandboxed to true (in ~/.claude/settings.json) after /sandbox
+  shows the seccomp filter as installed AND `cmd.exe /c ver` fails inside the
+  sandbox. denyRead /mnt hides the Windows drives from sandboxed commands
+  (/mnt/wsl stays readable for resolv.conf); keep WSL projects on ext4.
+*/ -}}
+{{- $common := include ".chezmoitemplates/claude-settings.common.json" | fromJson -}}
+{{- $overlayFile := ".chezmoitemplates/claude-settings.linux.json" -}}
+{{- if .isWindows -}}
+{{-   $overlayFile = ".chezmoitemplates/claude-settings.windows.json" -}}
+{{- end -}}
+{{- $overlay := include $overlayFile | fromJson -}}
+{{- $current := .chezmoi.stdin | default "{}" | fromJson -}}
+{{- if not (kindIs "map" $current) -}}
+{{-   fail "Claude settings must be a JSON object" -}}
+{{- end -}}
+{{- $query := `.[0] as $c | .[1] as $o | .[2] as $cur
+  | ($c * $o)
+  | .permissions.allow = (($c.permissions.allow // []) + ($o.permissions.allow // []))
+  | .permissions.deny = (($c.permissions.deny // []) + ($o.permissions.deny // []))
+  | . * $cur` -}}
+{{- $merged := list $common $overlay $current | jq $query | first -}}
+{{- if eq (toJson $current) (toJson $merged) -}}
+{{- /* Avoid rewriting Claude's formatting when no defaults are missing. */ -}}
+{{- .chezmoi.stdin -}}
+{{- else -}}
+{{ $merged | toPrettyJson }}
+{{ end -}}

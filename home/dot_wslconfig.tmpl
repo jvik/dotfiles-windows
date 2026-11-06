@@ -1,0 +1,43 @@
+{{- if .isWindows -}}
+# %USERPROFILE%\.wslconfig -- global WSL2 VM settings (managed by chezmoi on
+# the Windows side; edit the source in the dotfiles repo, not this file).
+#
+# Changes only take effect after the VM has fully stopped:
+#   wsl --shutdown        (then wait ~8 seconds before starting WSL again)
+#
+# Per-distro settings (systemd, default user, interop/PATH) live in
+# /etc/wsl.conf inside {{ .wslDistro }}, written by the WSL-side chezmoi scripts.
+#
+# IT may lock some of these keys through WSL Intune/Group Policy; check what is
+# actually in effect with `wsl --version` and the "WSL Settings" app.
+# Reference: https://learn.microsoft.com/windows/wsl/wsl-config
+
+[wsl2]
+# Mirrored networking: localhost works in both directions, IPv6/multicast work,
+# and it is generally the most VPN-friendly mode.
+networkingMode=mirrored
+# Resolve DNS through Windows (follows VPN/corporate DNS).
+dnsTunneling=true
+# Hand the Windows HTTP proxy settings to WSL.
+autoProxy=true
+# Let Windows Firewall / Hyper-V firewall rules (Intune) apply to WSL traffic.
+firewall=true
+# Optional: cap the VM memory (default is 50% of host RAM).
+# memory=16GB
+
+# --- NAT fallback ------------------------------------------------------------
+# Some corporate VPN clients (Zscaler, GlobalProtect, Cisco Secure Client)
+# misbehave with mirrored networking. If WSL loses connectivity on the VPN,
+# replace networkingMode above with the line below (keep dnsTunneling=true),
+# then `wsl --shutdown`:
+# networkingMode=nat
+
+[experimental]
+# Give memory back to Windows gradually after the VM goes idle.
+autoMemoryReclaim=gradual
+# New VHDs are created sparse, so the ext4.vhdx shrinks when space is freed.
+sparseVhd=true
+# Optional (mirrored mode only): let host and WSL also reach each other via the
+# host's own LAN/VPN IP addresses (127.0.0.1 always works in mirrored mode).
+# hostAddressLoopback=true
+{{ end -}}

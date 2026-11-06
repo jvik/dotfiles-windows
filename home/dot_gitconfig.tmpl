@@ -1,0 +1,89 @@
+{{- /*
+  One ~/.gitconfig for both sides: Git for Windows (%USERPROFILE%\.gitconfig)
+  and git inside WSL (~/.gitconfig). Branches only on .isWindows / .isWSL.
+  Identity: work by default; personal for repos under ~/src/personal/
+  (includeIf below -> ~/.config/git/personal.gitconfig).
+  Signing: SSH key held by the Bitwarden Desktop agent on Windows; enabled
+  only when .signingKey is non-empty.
+*/ -}}
+[user]
+        name = {{ .name | quote }}
+        email = {{ .email }}
+{{- if .signingKey }}
+        signingkey = {{ .signingKey | quote }}
+[gpg]
+        format = ssh
+[gpg "ssh"]
+        allowedSignersFile = ~/.config/git/allowed_signers
+{{-   if .isWindows }}
+        # Windows OpenSSH's ssh-keygen talks to the agent pipe
+        # (\\.\pipe\openssh-ssh-agent); Git for Windows' bundled one can't.
+        program = C:/Windows/System32/OpenSSH/ssh-keygen.exe
+{{-   end }}
+{{- end }}
+[commit]
+        verbose = true
+{{- if .signingKey }}
+        gpgsign = true
+{{- end }}
+[column]
+        ui = auto
+[branch]
+        sort = -committerdate
+[tag]
+        sort = version:refname
+[init]
+        defaultBranch = main
+[diff]
+        algorithm = histogram
+        colorMoved = plain
+        mnemonicPrefix = true
+        renames = true
+[push]
+        default = simple
+        autoSetupRemote = true
+        followTags = true
+[pull]
+        rebase = true
+[fetch]
+        prune = true
+        pruneTags = true
+        all = true
+[help]
+        autocorrect = prompt
+[rerere]
+        enabled = true
+        autoupdate = true
+[core]
+        # Global ignores: ~/.config/git/ignore (git's default location)
+        # Never convert line endings; .gitattributes decides per repo.
+        autocrlf = false
+{{- if .isWindows }}
+        # Windows OpenSSH, so git uses the Bitwarden Desktop agent pipe
+        sshCommand = C:/Windows/System32/OpenSSH/ssh.exe
+{{- end }}
+[rebase]
+        autoSquash = true
+        autoStash = true
+        updateRefs = true
+{{- if .isWSL }}
+[credential "https://github.com"]
+        helper =
+        helper = !gh auth git-credential
+{{-   $gcm := "" }}
+{{- /* Git for Windows machine scope (C:\Program Files\Git) first, then user scope (%LOCALAPPDATA%\Programs\Git). */}}
+{{-   $userGit := printf "/mnt/c/Users/%s/AppData/Local/Programs/Git" .windowsUser }}
+{{-   range list "/mnt/c/Program Files/Git/ucrt64/bin/git-credential-manager.exe" "/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe" (printf "%s/ucrt64/bin/git-credential-manager.exe" $userGit) (printf "%s/mingw64/bin/git-credential-manager.exe" $userGit) }}
+{{-     if and (not $gcm) (stat .) }}{{ $gcm = . }}{{ end }}
+{{-   end }}
+{{-   if $gcm }}
+# Azure DevOps over HTTPS: Git Credential Manager from Git for Windows
+# (Windows credential store + Entra SSO). Found at chezmoi apply time.
+[credential "https://dev.azure.com"]
+        helper =
+        helper = {{ $gcm | replace " " "\\\\ " }}
+        useHttpPath = true
+{{-   end }}
+{{- end }}
+[includeIf "gitdir:~/src/personal/"]
+        path = ~/.config/git/personal.gitconfig

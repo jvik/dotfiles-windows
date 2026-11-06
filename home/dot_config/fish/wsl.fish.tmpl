@@ -1,0 +1,51 @@
+# WSL-specific configuration (sourced from config.fish when $WSL_DISTRO_NAME is set)
+
+# Windows side of the machine
+set -gx WINHOME /mnt/c/Users/{{ .windowsUser }}
+
+# Windows interop PATH. /etc/wsl.conf sets appendWindowsPath=false so fish stays
+# fast and Windows binaries (node.exe, git.exe, ...) can't shadow Linux ones.
+# Add back only what we use, AFTER the Linux paths (-a), and only for this
+# session (-P edits $PATH, not the universal fish_user_paths, which would put
+# them in front). fish_add_path skips directories that don't exist.
+fish_add_path -aP /mnt/c/Windows/System32
+fish_add_path -aP /mnt/c/Windows
+fish_add_path -aP /mnt/c/Windows/System32/WindowsPowerShell/v1.0
+fish_add_path -aP /mnt/c/Windows/System32/OpenSSH
+# winget portable packages (win32yank.exe, ...)
+fish_add_path -aP $WINHOME/AppData/Local/Microsoft/WinGet/Links
+# VS Code / Insiders `code` launchers (user installs, machine installs)
+fish_add_path -aP "$WINHOME/AppData/Local/Programs/Microsoft VS Code/bin"
+fish_add_path -aP "$WINHOME/AppData/Local/Programs/Microsoft VS Code Insiders/bin"
+fish_add_path -aP "/mnt/c/Program Files/Microsoft VS Code/bin"
+fish_add_path -aP "/mnt/c/Program Files/Microsoft VS Code Insiders/bin"
+
+# Open files and URLs with the Windows default application
+# (~/.local/bin/wsl-open; wslu/wslview is discontinued)
+set -gx BROWSER wsl-open
+alias open='wsl-open'
+
+# SSH agent: the keys live in Bitwarden Desktop on Windows, which serves
+# \\.\pipe\openssh-ssh-agent. mame/wsl2-ssh-agent (installed by mise) bridges
+# that pipe to a unix socket (~/.ssh/wsl2-ssh-agent.sock) through powershell.exe.
+# The first call starts its daemon; later calls find the live socket and just
+# print the SSH_AUTH_SOCK assignment. -format fish because $SHELL is not
+# always fish (e.g. fish started from bash).
+if command -q wsl2-ssh-agent
+    # The socket lives in ~/.ssh; a fresh distro may not have it yet.
+    test -d $HOME/.ssh; or mkdir -m 700 $HOME/.ssh
+    wsl2-ssh-agent -format fish | source
+end
+
+# Corporate TLS inspection hook: put the root CA(s) in ~/.config/certs/*.crt and
+# the WSL provisioning script adds them to the system bundle. Tools that ship
+# their own CA store (node, python requests, pip, brewed curl/openssl) are then
+# pointed at that bundle.
+set -l corp_certs $HOME/.config/certs/*.crt
+if set -q corp_certs[1]; and test -r /etc/ssl/certs/ca-certificates.crt
+    set -gx NODE_EXTRA_CA_CERTS /etc/ssl/certs/ca-certificates.crt
+    set -gx REQUESTS_CA_BUNDLE /etc/ssl/certs/ca-certificates.crt
+    set -gx SSL_CERT_FILE /etc/ssl/certs/ca-certificates.crt
+    set -gx CURL_CA_BUNDLE /etc/ssl/certs/ca-certificates.crt
+    set -gx PIP_CERT /etc/ssl/certs/ca-certificates.crt
+end

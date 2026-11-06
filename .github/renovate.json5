@@ -1,0 +1,16 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  timezone: "Europe/Oslo",
+  // One weekly batch is plenty for a dotfiles repo.
+  schedule: ["before 6am on monday"],
+  // Only version-pinned tools in mise's config.toml are tracked here.
+  // winget, apt and brew lists have no Renovate manager; topgrade keeps
+  // those up to date on the machine instead.
+  enabledManagers: ["mise"],
+  mise: {
+    // The defaults already match home/dot_config/mise/config.toml
+    // (**/mise/config{,.*}.toml); also cover it if it becomes a template.
+    managerFilePatterns: ["/(^|/)mise/config\\.toml\\.tmpl$/"],
+  },
+}

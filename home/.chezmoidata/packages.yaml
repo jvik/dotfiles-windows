@@ -1,0 +1,165 @@
+# Central package list for both sides of the machine. chezmoi exposes it to
+# every template as .packages. The install scripts iterate it, so their
+# rendered text changes whenever this file changes and chezmoi re-runs them
+# (run_onchange_). This file must stay plain YAML (no template syntax).
+#
+# Ownership - exactly ONE installer per tool, so nothing shadows anything on PATH:
+#   windows.winget  Windows apps and Windows-side CLIs
+#   wsl.apt         base OS bits of the Ubuntu distro only
+#   wsl.brew        general CLIs (Homebrew on Linux, /home/linuxbrew/.linuxbrew)
+#   mise            version-pinned toolchains/CLIs (kubectl, helm, terraform,
+#                   node, cplt, wsl2-ssh-agent, herdr, copilot CLI, ...):
+#                   home/dot_config/mise/config.toml, NOT this file
+#   Claude Code     winget on Windows (below); native installer in WSL
+#                   (run_once script), not apt/brew/mise.
+#
+# Feature-gated lists: a key named after a feature flag under a side
+# (packages.windows.powertoys, packages.wsl.docker) is installed ONLY when
+# .features.<that name> is true, and by the same installer as its siblings
+# (winget entries for windows.*, apt packages for wsl.docker). Scripts must
+# not install these lists unconditionally.
+#
+# winget entry fields:
+#   id     exact winget id (`winget install --id <id> -e --source winget`).
+#          Every id below was checked with `winget show --id <id> -e` (2026-11).
+#   scope  optional: user | machine -> `--scope <scope>`. Omitted = let the
+#          installer decide (the manifest declares no scope, or the default
+#          is what we want). Portable (zip/exe) packages use `user` so their
+#          command lands in %LOCALAPPDATA%\Microsoft\WinGet\Links, which WSL's
+#          fish adds to PATH explicitly (appendWindowsPath=false).
+#   note   optional, free text for humans.
+
+packages:
+  windows:
+    winget:
+      # --- bootstrap / plumbing -------------------------------------------
+      - id: Git.Git
+        scope: machine
+        note: "Git for Windows: GCM, Git Bash for native Claude Code. bootstrap.ps1 installs it machine scope; an existing user-scope install (%LOCALAPPDATA%\\Programs\\Git) is kept and the WSL gitconfig probes both"
+      - id: twpayne.chezmoi
+        scope: user
+        note: "also installed by bootstrap.ps1; listed so it stays declared"
+      - id: Microsoft.PowerShell
+        note: "PowerShell 7 (msix, no scope); chezmoi prefers pwsh for .ps1 scripts"
+      - id: Casey.Just
+        scope: user
+        note: "repo justfile runs from Windows too (windows-shell = powershell.exe)"
+      - id: topgrade-rs.topgrade
+        scope: user
+        note: "updates winget packages + runs topgrade inside WSL (%APPDATA%\\topgrade.toml)"
+
+      # --- terminal, editor, fonts ----------------------------------------
+      - id: wez.wezterm
+        note: "terminal; default domain WSL:Ubuntu (%USERPROFILE%\\.wezterm.lua)"
+      - id: DEVCOM.JetBrainsMonoNerdFont
+        note: "fonts render on Windows, so the Nerd Font is installed here, never in WSL; MSI, may prompt for elevation"
+      - id: Microsoft.VisualStudioCode
+        scope: user
+        note: "user scope -> %LOCALAPPDATA%\\Programs\\Microsoft VS Code\\bin, the path WSL's fish adds for `code`"
+
+      # --- WSL integration --------------------------------------------------
+      - id: equalsraf.win32yank
+        scope: user
+        note: "clipboard bridge used by nvim, tmux, fish copy/pasta inside WSL (via WinGet\\Links)"
+
+      # --- dev CLIs on the Windows side -------------------------------------
+      - id: GitHub.cli
+        scope: user
+        note: "gh for Windows-side repos (this one); the WSL gh comes from brew"
+      - id: Anthropic.ClaudeCode
+        scope: user
+        note: "native Windows Claude Code (portable); needs Git.Git for its Bash tool. The WSL copy uses the native installer"
+
+      # --- apps ---------------------------------------------------------------
+      - id: Bitwarden.Bitwarden
+        note: "desktop app + SSH agent on \\\\.\\pipe\\openssh-ssh-agent (keep the Windows OpenSSH Agent service disabled)"
+      - id: Obsidian.Obsidian
+        scope: user
+        note: "vault vimrc deployed when data obsidianVault is set"
+
+      # --- optional, not part of the agreed set (ids verified; uncomment to use) ---
+      # - id: Mozilla.Firefox            # browser (no arkenfox/policies management)
+      # - id: Giorgiotani.Peazip         # replaces the PeaZip flatpak; or 7zip.7zip
+      # - id: hluk.CopyQ                 # or the built-in Win+V clipboard history
+      # - id: ShareX.ShareX              # screenshots/recording beyond Snipping Tool
+      # - id: ArminOsaj.AutoDarkMode     # sunset light/dark switching (darkman replacement)
+      # - id: Logitech.OptionsPlus       # replaces solaar; may need IT approval
+      # - id: Bitwarden.CLI              # bw on Windows (bw in WSL comes from brew)
+      # - id: jqlang.jq
+      # - id: JesseDuffield.lazygit      # only if git is used natively on Windows
+
+    # Installed only when .features.powertoys (Keyboard Manager remaps:
+    # CapsLock<->Esc, LAlt<->LWin, carried over from the sway input block).
+    powertoys:
+      - id: Microsoft.PowerToys
+        scope: user
+        note: "per-user installer (PowerToysUserSetup)"
+
+  wsl:
+    # Base OS only (`sudo apt-get install -y`). General CLIs belong in brew.
+    # fish comes from ppa:fish-shell/release-4, which the apt script adds
+    # first (Ubuntu's own fish is 3.x; the PPA keeps it at /usr/bin/fish for chsh).
+    apt:
+      # build + Homebrew prerequisites (LazyVim/mason/telescope-fzf-native need a C toolchain)
+      - build-essential
+      - procps
+      - file
+      - curl
+      - ca-certificates
+      - git
+      - unzip
+      # shell / terminal
+      - fish # login shell (chsh -s /usr/bin/fish), from the PPA
+      - tmux # never provisioned by the old bootstrap; tmux.conf + tpm + sesh need it
+      # agent sandboxing: agent-sandbox, Claude Code's Linux sandbox and the
+      # VS Code agent terminal sandbox (Remote-WSL) - bwrap + socat + userns/network helpers
+      - bubblewrap
+      - socat
+      - uidmap
+      - slirp4netns
+      - iptables
+      # small utilities
+      - jq # new-worktree, ghfuzzyclone, SOPS_AGE_KEY_CMD
+      - dnsutils # dig (httpcheck)
+      - ncal # cal
+      - tree
+      - htop
+      - unrar # multiverse (enabled by default on Ubuntu WSL)
+
+    # Installed only when .features.docker: Docker Engine from Docker's own apt
+    # repository (download.docker.com; the script adds the repo + key first).
+    # No Docker Desktop. ctop (brew, below) is the matching TUI.
+    docker:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+    # General CLIs via Homebrew on Linux (`brew install` / brew bundle).
+    brew:
+      - neovim # LazyVim needs >= 0.11; Ubuntu's apt neovim is too old
+      - ripgrep
+      - fd # same binary name everywhere (apt's is fdfind)
+      - bat # (apt's is batcat)
+      - fzf
+      - eza
+      - zoxide
+      - gh
+      - just
+      - just-lsp
+      - lazygit
+      - sesh
+      - k9s
+      - kubectx # kubectx + kubens (kubectl itself is pinned in mise)
+      - uv
+      - tree-sitter-cli # LazyVim
+      - topgrade # WSL side: system(apt), brew, mise, fisher/tmux plugins
+      - bitwarden-cli # bw: bw-unlock, SOPS_AGE_KEY_CMD, push_ssh_key (pulls in brew node; mise's node stays first on PATH)
+      - sops
+      - age
+      - ctop # docker TUI
+      - fastfetch # optional eye candy
+      - ranger # tmux C-r popup
+      - ipython # tmux C-p popup
+      - mise # runtime/tool versions: home/dot_config/mise/config.toml

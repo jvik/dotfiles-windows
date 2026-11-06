@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git log*)",
+      "PowerShell(git show*)",
+      "PowerShell(git branch*)",
+      "PowerShell(git remote -v)",
+      "PowerShell(git blame*)",
+      "PowerShell(git stash list*)",
+      "PowerShell(git worktree list*)",
+      "PowerShell(chezmoi diff*)",
+      "PowerShell(chezmoi status*)",
+      "PowerShell(chezmoi data*)",
+      "PowerShell(chezmoi doctor*)",
+      "PowerShell(chezmoi cat*)",
+      "PowerShell(chezmoi managed*)",
+      "PowerShell(chezmoi source-path*)",
+      "PowerShell(chezmoi verify*)",
+      "PowerShell(chezmoi apply --dry-run)",
+      "PowerShell(rg*)",
+      "PowerShell(Get-ChildItem*)",
+      "PowerShell(Get-Content*)",
+      "PowerShell(Select-String*)",
+      "PowerShell(Get-Location)",
+      "PowerShell(Get-Command*)",
+      "PowerShell(Test-Path*)",
+      "PowerShell(Measure-Object*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.docker/**)",
+      "Read(~/.kube/config)",
+      "Read(~/AppData/Roaming/Bitwarden/**)",
+      "Read(~/AppData/Roaming/Bitwarden CLI/**)",
+      "Read(~/AppData/Roaming/GitHub CLI/**)",
+      "PowerShell(Invoke-Expression*)",
+      "PowerShell(Start-Process*-Verb*RunAs*)",
+      "PowerShell(*;*)",
+      "PowerShell(*&&*)",
+      "PowerShell(*||*)",
+      "PowerShell(*$(*)*)"
+    ],
+    "ask": [
+      "PowerShell(*|*)",
+      "PowerShell(*&*)"
+    ]
+  }
+}
