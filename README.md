@@ -259,8 +259,10 @@ pipe.
    pipe. Test: `ssh-add -l`, `ssh -T git@github.com`.
 4. WSL: [`mame/wsl2-ssh-agent`](https://github.com/mame/wsl2-ssh-agent)
    (installed by mise) bridges the pipe to `~/.ssh/wsl2-ssh-agent.sock` through
-   `powershell.exe`; `wsl.fish` starts it and sets `SSH_AUTH_SOCK`. Test the same
-   way in fish.
+   PowerShell 7 (`pwsh.exe`, falling back to `powershell.exe`); `wsl.fish` starts
+   it and sets `SSH_AUTH_SOCK`. Test the same way in fish. Windows PowerShell 5.1
+   starts the relay too slowly for the daemon's 10s limit, which kills the
+   daemon (`Couldn't get agent socket?` when signing).
 5. Add the public key on GitHub as both an **Authentication** and a **Signing**
    key, so signed commits show as Verified.
 

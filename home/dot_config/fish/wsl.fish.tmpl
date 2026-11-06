@@ -27,14 +27,23 @@ alias open='wsl-open'
 
 # SSH agent: the keys live in Bitwarden Desktop on Windows, which serves
 # \\.\pipe\openssh-ssh-agent. mame/wsl2-ssh-agent (installed by mise) bridges
-# that pipe to a unix socket (~/.ssh/wsl2-ssh-agent.sock) through powershell.exe.
+# that pipe to a unix socket (~/.ssh/wsl2-ssh-agent.sock) through PowerShell.
 # The first call starts its daemon; later calls find the live socket and just
 # print the SSH_AUTH_SOCK assignment. -format fish because $SHELL is not
 # always fish (e.g. fish started from bash).
 if command -q wsl2-ssh-agent
     # The socket lives in ~/.ssh; a fresh distro may not have it yet.
     test -d $HOME/.ssh; or mkdir -m 700 $HOME/.ssh
-    wsl2-ssh-agent -format fish | source
+    # The daemon gives PowerShell 3s, 6s, then 10s to start its relay script
+    # and exits if all three time out, leaving a dead socket ("Couldn't get
+    # agent socket?"). Windows PowerShell 5.1 needs ~7-10s for that on this
+    # machine; PowerShell 7 (winget Microsoft.PowerShell) needs ~1s.
+    set -l pwsh $WINHOME/AppData/Local/Microsoft/WindowsApps/pwsh.exe
+    if test -x $pwsh
+        wsl2-ssh-agent -format fish -powershell-path $pwsh | source
+    else
+        wsl2-ssh-agent -format fish | source
+    end
 end
 
 # Corporate TLS inspection hook: put the root CA(s) in ~/.config/certs/*.crt and
