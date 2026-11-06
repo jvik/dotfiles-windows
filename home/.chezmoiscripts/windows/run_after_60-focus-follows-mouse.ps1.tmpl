@@ -1,0 +1,83 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_60-focus-follows-mouse (runs on every apply)
+#
+# Sway-style focus follows mouse: a window gets keyboard focus when the
+# pointer rests on it, without being raised (sway tiles, so the focused
+# window is never covered there). This is the Control Panel setting
+# Ease of Access > "Make the mouse easier to use" > "Activate a window by
+# hovering over it with the mouse", plus the no-raise and delay parts that
+# only the SystemParametersInfo API exposes.
+#
+# Windows stores these per user in HKCU\Control Panel\Desktop
+# (UserPreferencesMask bits and ActiveWndTrkTimeout). They are read from
+# there, which is cheap, and only changed through SystemParametersInfo, which
+# also notifies running programs, so no sign-out is needed. The repo wins:
+# a change made in Control Panel is undone on the next apply.
+#
+# It never fails the apply. Keep this file pure ASCII and Windows PowerShell
+# 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+$desiredTracking = $true
+$desiredRaise = $false
+# How long (ms) the pointer must rest on a window before it gets focus, so
+# windows crossed on the way to another one do not grab it (and close menus).
+$desiredDelayMs = 150
+
+# Bits in the first byte of UserPreferencesMask.
+$trackingBit = 0x01
+$raiseBit = 0x40
+
+$SPI_SETACTIVEWINDOWTRACKING = 0x1001
+$SPI_SETACTIVEWNDTRKZORDER = 0x100D
+$SPI_SETACTIVEWNDTRKTIMEOUT = 0x2003
+# SPIF_UPDATEINIFILE (persist) | SPIF_SENDCHANGE (notify running programs)
+$SPIF_PERSIST_AND_NOTIFY = 0x03
+
+function Write-Info([string]$Message) { Write-Host "[focus] $Message" }
+
+function Get-CurrentSettings {
+    $desktop = Get-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop'
+    $firstMaskByte = 0
+    if ($null -ne $desktop.UserPreferencesMask) { $firstMaskByte = [int]$desktop.UserPreferencesMask[0] }
+    $delayMs = 0
+    if ($null -ne $desktop.ActiveWndTrkTimeout) { $delayMs = [int]$desktop.ActiveWndTrkTimeout }
+    return @{
+        Tracking = (($firstMaskByte -band $trackingBit) -ne 0)
+        Raise    = (($firstMaskByte -band $raiseBit) -ne 0)
+        DelayMs  = $delayMs
+    }
+}
+
+# For these actions the new value is passed directly in pvParam.
+function Set-SystemParameter([uint32]$Action, [int]$Value, [string]$Name) {
+    $ok = [Dotfiles.User32]::SystemParametersInfo($Action, 0, [IntPtr]$Value, $SPIF_PERSIST_AND_NOTIFY)
+    if (-not $ok) {
+        $code = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        throw "SystemParametersInfo($Name) failed with Win32 error $code"
+    }
+}
+
+try {
+    $current = Get-CurrentSettings
+    if (($current.Tracking -eq $desiredTracking) -and ($current.Raise -eq $desiredRaise) -and ($current.DelayMs -eq $desiredDelayMs)) {
+        Write-Info 'Focus follows mouse is set: OK.'
+        exit 0
+    }
+
+    # Compiled only when something needs changing, to keep the usual apply fast.
+    Add-Type -Namespace Dotfiles -Name User32 -MemberDefinition @'
+[DllImport("user32.dll", SetLastError = true)]
+public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
+'@
+
+    Set-SystemParameter $SPI_SETACTIVEWINDOWTRACKING ([int]$desiredTracking) 'ACTIVEWINDOWTRACKING'
+    Set-SystemParameter $SPI_SETACTIVEWNDTRKZORDER ([int]$desiredRaise) 'ACTIVEWNDTRKZORDER'
+    Set-SystemParameter $SPI_SETACTIVEWNDTRKTIMEOUT $desiredDelayMs 'ACTIVEWNDTRKTIMEOUT'
+    Write-Info "Turned on focus follows mouse (raise: $desiredRaise, delay: $desiredDelayMs ms)."
+} catch {
+    Write-Warning ("[focus] Could not set focus follows mouse: {0}" -f $_.Exception.Message)
+}
+exit 0
+{{ end -}}

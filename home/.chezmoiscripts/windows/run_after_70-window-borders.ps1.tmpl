@@ -1,0 +1,54 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_70-window-borders (runs on every apply)
+#
+# Shows which window is active, as sway's focused border does: the active
+# window's title bar and 1px border get the accent color, inactive ones stay
+# grey. This is Settings > Personalization > Colors > "Show accent color on
+# title bars and window borders".
+#
+# Windows stores it per user as ColorPrevalence in
+# HKCU\Software\Microsoft\Windows\DWM. After writing it, the script broadcasts
+# the same "ImmersiveColorSet" settings change that the Settings app sends, so
+# open windows pick it up without a sign-out. The repo wins: a change made in
+# Settings is undone on the next apply.
+#
+# It never fails the apply. Keep this file pure ASCII and Windows PowerShell
+# 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+$dwmKey = 'HKCU:\Software\Microsoft\Windows\DWM'
+$desiredColorPrevalence = 1
+
+$HWND_BROADCAST = [IntPtr]0xFFFF
+$WM_SETTINGCHANGE = 0x001A
+$SMTO_ABORTIFHUNG = 0x0002
+# Do not let one hung window stall the apply.
+$broadcastTimeoutMs = 1000
+
+function Write-Info([string]$Message) { Write-Host "[borders] $Message" }
+
+function Send-ColorSettingChange {
+    Add-Type -Namespace Dotfiles -Name WindowBorders -MemberDefinition @'
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+'@
+    $result = [UIntPtr]::Zero
+    [void][Dotfiles.WindowBorders]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'ImmersiveColorSet', $SMTO_ABORTIFHUNG, $broadcastTimeoutMs, [ref]$result)
+}
+
+try {
+    $current = (Get-ItemProperty -LiteralPath $dwmKey -ErrorAction SilentlyContinue).ColorPrevalence
+    if ($current -eq $desiredColorPrevalence) {
+        Write-Info 'Accent color on active window borders is set: OK.'
+        exit 0
+    }
+
+    Set-ItemProperty -LiteralPath $dwmKey -Name ColorPrevalence -Value $desiredColorPrevalence -Type DWord
+    Send-ColorSettingChange
+    Write-Info 'Turned on accent color on title bars and window borders.'
+} catch {
+    Write-Warning ("[borders] Could not set window border color: {0}" -f $_.Exception.Message)
+}
+exit 0
+{{ end -}}

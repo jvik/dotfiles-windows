@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -214,8 +214,8 @@ prints a retry command per package). chezmoi does not re-run it until the
 list changes, so run those commands by hand.
 
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
-the ssh-agent check, the PowerToys remaps, the Obsidian vimrc copy and the
-Firefox user.js.
+the ssh-agent check, the PowerToys remaps, the Obsidian vimrc copy, the
+Firefox user.js, focus follows mouse and the window borders.
 
 ---
 
@@ -452,8 +452,8 @@ to-text remaps). By default it holds the old sway
 `xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`: Caps Lock <-> Esc and
 Left Alt <-> Left Win. It also has sway-style shortcuts with mod = Win (the
 physical Left Alt key): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
-opens the Command Palette (sends its Win+Alt+Space hotkey) and `mod+Shift+F`
-starts a new Firefox window.
+opens the Command Palette (sends its Win+Alt+Space hotkey), `mod+Shift+F`
+starts a new Firefox window and `mod+Enter` a new WezTerm window.
 
 On every apply `run_after_40-powertoys-keyboard` writes those sections into
 `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json` (the active
@@ -466,6 +466,22 @@ one, copy its entry from the file into `powertoys.yaml`.
 The script only reads PowerToys' `settings.json` and warns when Keyboard
 Manager is disabled or PowerToys does not run at startup (the remaps only work
 while PowerToys runs); turn those on in PowerToys Settings.
+
+## Focus follows mouse
+
+As in sway, a window gets keyboard focus when the pointer rests on it for
+150 ms, without being raised. `run_after_60-focus-follows-mouse` sets this on
+every apply when it differs (it is Control Panel's "Activate a window by
+hovering over it with the mouse" plus the no-raise and delay options); to
+change it, edit the `$desired*` values at the top of the script.
+
+## Window borders
+
+To show which window is active, as sway's focused border does,
+`run_after_70-window-borders` turns on Settings > Personalization > Colors >
+"Show accent color on title bars and window borders" on every apply. The active
+window gets an accent-colored title bar and 1px border, inactive ones stay grey.
+The color is the Windows accent color, set in the same Settings page.
 
 ## Obsidian
 
