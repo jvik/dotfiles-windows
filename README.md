@@ -492,6 +492,23 @@ every apply when it differs (it is Control Panel's "Activate a window by
 hovering over it with the mouse" plus the no-raise and delay options); to
 change it, edit the `$desired*` values at the top of the script.
 
+## No network in standby on battery
+
+So a sleeping laptop in a bag does not keep waking on Wi-Fi traffic,
+`run_after_65-standby-network` sets the active power plan's "Networking
+connectivity in Standby" to Disable on battery (Modern Standby / S0). On AC it
+is left alone. When powercfg cannot write it, the script prints the command
+for an elevated PowerShell; when a group policy sets it, the script only
+warns.
+
+`run_after_66-wake-devices` also turns off "Allow this device to wake the
+computer" for the devices matching `$noWakePatterns` at the top of the script
+(default `*Bluetooth*`; `powercfg /devicequery wake_armed` lists the
+candidates). Windows arms wake per piece of hardware, so Bluetooth headphones
+are stopped by disarming the Bluetooth adapter, which stops every Bluetooth
+device. Disarming needs admin: when it fails, the script prints the elevated
+commands.
+
 ## Window borders
 
 To show which window is active, as sway's focused border does,
