@@ -8,15 +8,6 @@
 ; GlazeWM and the PowerToys shortcuts still see Win as a modifier.
 ; Ctrl+Esc still opens Start.
 ;
-; Started by GlazeWM (startup_commands); exits on its own when GlazeWM is gone.
-
-#Requires AutoHotkey v2.0
-#SingleInstance Force
+; Included by helpers.ahk; not meant to run on its own.
 
 ~LWin::Send "{Blind}{vkE8}"
-
-ExitWhenGlazeWmIsGone() {
-    if !ProcessExist("glazewm.exe")
-        ExitApp
-}
-SetTimer ExitWhenGlazeWmIsGone, 5000

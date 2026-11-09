@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1`, `.glzr/glazewm/suppress-start-menu.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
+| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/*.ps1`, `.glzr/glazewm/*.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
 | scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
@@ -527,9 +527,23 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
 * Tapping mod alone does not open the Start menu (`Ctrl+Esc` still does).
   GlazeWM only prevents that after its own keybindings, so
-  `suppress-start-menu.ahk` (AutoHotkey v2, a GlazeWM startup command) sends
-  an unassigned key on every Win press. It passes Win through and exits when
-  GlazeWM does.
+  `suppress-start-menu.ahk` sends an unassigned key on every Win press. It
+  passes Win through.
+* Bitwarden Desktop and the Firefox extension's pop-out window are floating and
+  sticky: a window rule ignores them, so they stay visible on every workspace,
+  and `bitwarden-on-top.ahk` keeps them always on top. It also centres each new
+  pop-out at a sensible size.
+* The AutoHotkey (v2) helpers run as one process with one tray icon:
+  `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
+  config reload, and it exits when GlazeWM does. A new helper is one more
+  `#Include` line.
+* Reload the config (`mod+Ctrl+Shift+c`) rather than restarting GlazeWM: a
+  reload keeps everything. GlazeWM itself forgets on a restart which workspace
+  each window was on, so `remember-workspaces.ps1` (a GlazeWM startup command)
+  records it by window handle in
+  `%LOCALAPPDATA%\glazewm-window-workspaces.json` and moves the windows back
+  when GlazeWM starts. Only the workspace comes back, not the split layout.
+  Errors go to `%TEMP%\glazewm-remember-workspaces.log`.
 
 ### Zebar status bar
 

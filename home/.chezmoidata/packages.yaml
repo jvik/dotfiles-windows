@@ -105,7 +105,7 @@ packages:
         note: "MSI; may prompt for elevation"
       - id: AutoHotkey.AutoHotkey
         scope: user
-        note: "runs ~/.glzr/glazewm/suppress-start-menu.ahk (mod alone does not open Start)"
+        note: "runs ~/.glzr/glazewm/helpers.ahk (mod alone does not open Start, Bitwarden on top)"
 
   wsl:
     # Base OS only (`sudo apt-get install -y`). General CLIs belong in brew.

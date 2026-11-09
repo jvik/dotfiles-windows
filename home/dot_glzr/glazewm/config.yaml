@@ -19,17 +19,23 @@ general:
   startup_commands:
     # Keeps workspace 10 on the laptop's built-in display (see the script).
     - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/pin-laptop-workspace.ps1'
+    # A restart puts windows back on their workspaces (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1'
     # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
     # shows GlazeWM's workspaces and reserves screen space for itself.
     - 'shell-exec zebar'
-    # Tapping mod alone does not open the Start menu (see the script). It
-    # exits on its own after GlazeWM.
-    - 'shell-exec %userprofile%/.glzr/glazewm/suppress-start-menu.ahk'
-    # Bitwarden stays above other windows (see the script and window_rules).
-    - 'shell-exec %userprofile%/.glzr/glazewm/bitwarden-on-top.ahk'
+    # AutoHotkey helpers, one process (see helpers.ahk): tapping mod alone does
+    # not open the Start menu, and Bitwarden stays above other windows (see
+    # window_rules). It exits on its own after GlazeWM.
+    - 'shell-exec %userprofile%/.glzr/glazewm/helpers.ahk'
   shutdown_commands:
     - 'shell-exec taskkill /IM zebar.exe /F'
-  config_reload_commands: []
+  # Reload (lwin+ctrl+shift+c) instead of restarting GlazeWM: a restart loses
+  # which workspace each window was on, a reload keeps it. This re-runs the
+  # AHK helpers so edits to them apply too (#SingleInstance Force replaces
+  # the running copy).
+  config_reload_commands:
+    - 'shell-exec %userprofile%/.glzr/glazewm/helpers.ahk'
 
   # Windows' own active window tracking does this (see header).
   focus_follows_cursor: false
@@ -136,6 +142,11 @@ window_rules:
       # window is never hidden on a workspace switch, so it follows you.
       # bitwarden-on-top.ahk keeps it above the tiled windows.
       - window_process: { equals: 'Bitwarden' }
+      # The Firefox extension's pop-out window. The title regex must match
+      # FIREFOX_POPOUT_TITLE in bitwarden-on-top.ahk.
+      - window_process: { equals: 'firefox' }
+        window_class: { equals: 'MozillaDialogClass' }
+        window_title: { regex: '^Extension: \(Bitwarden Password Manager\)' }
 
   # sway: for_window [app_id="...Calculator"] floating enable.
   - commands: ['set-floating --centered']
