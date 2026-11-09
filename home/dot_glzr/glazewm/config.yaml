@@ -161,6 +161,10 @@ window_rules:
       # localized, so match the class) and its copy-progress window.
       - window_process: { equals: 'explorer' }
         window_class: { regex: '^(NativeHWNDHost|OperationStatusWindow)$' }
+      # Properties dialogs from any program (Explorer, Task Manager, ...).
+      # Norwegian "Egenskaper for X", English "X Properties".
+      - window_class: { equals: '#32770' }
+        window_title: { regex: '^Egenskaper for |Properties$' }
       # Firefox's Library window (Downloads, History, Bookmarks). Browser
       # windows end in " — Mozilla Firefox", so an exact title is safe.
       - window_process: { equals: 'firefox' }
