@@ -170,6 +170,14 @@ window_rules:
       - window_process: { equals: 'firefox' }
         window_class: { equals: 'MozillaWindowClass' }
         window_title: { equals: 'Library' }
+      # Admin By Request: its elevation prompts and the session countdown
+      # window (titled with the time left, e.g. "00:14:13").
+      - window_process: { equals: 'AdminByRequest' }
+      # Installer wizards, e.g. "Horizon Client Installer" (the process name
+      # carries the version, so match the title). Browser and editor titles
+      # end in the program name, so this does not catch tabs about setup.
+      - window_title: { regex: '(Installer|Setup|[Ii]nstallasjon(sprogram)?)$' }
+      - window_process: { equals: 'msiexec' }
 
 binding_modes:
   # sway: mode "resize"
