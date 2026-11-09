@@ -72,6 +72,10 @@ ext4). The goal is safe, minimal, and idempotent changes.
   the source of truth: `run_after_40-powertoys-keyboard` replaces only the four
   remap sections of the active profile file and keeps other fields. PowerToys'
   `settings.json` files are runner-owned: read them, never write them.
+- Single-key swaps (Caps Lock <-> Esc, Left Alt <-> Left Win) are NOT
+  PowerToys remaps but the `Scancode Map` checked by
+  `run_after_35-keyboard-scancode-map`, so other keyboard hooks (GlazeWM) see
+  the swapped keys. Keep `remapKeys.inProcess` free of them, or they swap back.
 
 ### Firefox
 

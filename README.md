@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -214,7 +214,7 @@ prints a retry command per package). chezmoi does not re-run it until the
 list changes, so run those commands by hand.
 
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
-the ssh-agent check, the PowerToys remaps, the Obsidian vimrc copy, the
+the ssh-agent check, the keyboard Scancode Map check, the PowerToys remaps, the Obsidian vimrc copy, the
 Firefox user.js, focus follows mouse and the window borders.
 
 ---
@@ -443,15 +443,28 @@ repositories and worktrees in the WSL home (e.g. `~/src`), not on `/mnt/c`.
 
 ---
 
+## Keyboard layout
+
+The old sway `xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`, Caps Lock
+<-> Esc and Left Alt <-> Left Win, is a Windows Scancode Map
+(`HKLM\SYSTEM\CurrentControlSet\Control\Keyboard Layout`, value
+`Scancode Map`). The keyboard driver applies it before any program sees a key,
+so PowerToys shortcuts and GlazeWM keybindings all see the physical Left Alt
+key as Win. (As a PowerToys key remap it was done in a keyboard hook, and
+GlazeWM did not see the swapped Win key.) It is machine-wide, for all users and
+keyboards.
+
+Writing it needs admin and a restart, so `run_after_35-keyboard-scancode-map`
+only checks it on every apply and, when it differs, prints the elevated
+command that sets it. Run that command, then restart Windows.
+
 ## PowerToys remaps (`features.powertoys`)
 
 The Keyboard Manager remaps are managed from this repo:
 `home/.chezmoidata/powertoys.yaml` (`powertoys.keyboardManager`) lists them in
 PowerToys' own file format (key remaps, shortcut remaps, app-specific and
-to-text remaps). By default it holds the old sway
-`xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`: Caps Lock <-> Esc and
-Left Alt <-> Left Win. It also has sway-style shortcuts with mod = Win (the
-physical Left Alt key): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
+to-text remaps). It holds sway-style shortcuts with mod = Win (the physical
+Left Alt key, see [Keyboard layout](#keyboard-layout)): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
 opens the Command Palette (sends its Win+Alt+Space hotkey), `mod+Shift+F`
 starts a new Firefox window and `mod+Enter` a new WezTerm window.
 

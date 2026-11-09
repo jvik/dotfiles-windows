@@ -88,8 +88,8 @@ packages:
       # - id: jqlang.jq
       # - id: JesseDuffield.lazygit      # only if git is used natively on Windows
 
-    # Installed only when .features.powertoys (Keyboard Manager remaps:
-    # CapsLock<->Esc, LAlt<->LWin, carried over from the sway input block).
+    # Installed only when .features.powertoys (Keyboard Manager shortcut
+    # remaps, home/.chezmoidata/powertoys.yaml).
     powertoys:
       - id: Microsoft.PowerToys
         scope: user
