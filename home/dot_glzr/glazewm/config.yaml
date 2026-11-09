@@ -16,7 +16,9 @@
 # run_after_60-focus-follows-mouse (it has the 150 ms delay GlazeWM lacks).
 
 general:
-  startup_commands: []
+  startup_commands:
+    # Keeps workspace 10 on the laptop's built-in display (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/pin-laptop-workspace.ps1'
   shutdown_commands: []
   config_reload_commands: []
 

@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| `.glzr/glazewm/config.yaml` | with `features.glazewm` | - |
+| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1` | with `features.glazewm` | - |
 | scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
@@ -520,6 +520,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   GlazeWM is paused (`mod+Shift+p`) or not running.
 * sway's tabbed/stacking layouts, sticky windows and scratchpad have no
   GlazeWM equivalent.
+* Workspace 10 (`mod+0`) stays on the laptop's built-in display.
+  `bind_to_monitor` only takes a position-based index, so
+  `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
+  display through WMI and moves the workspace there whenever it is activated
+  or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
 
 The winget package is installed with the other feature-gated lists, and
 `run_after_80-glazewm-startup` adds GlazeWM to the per-user startup list
