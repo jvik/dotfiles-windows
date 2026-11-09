@@ -103,6 +103,9 @@ packages:
         note: "MSI; may prompt for elevation"
       - id: glzr-io.zebar
         note: "MSI; may prompt for elevation"
+      - id: AutoHotkey.AutoHotkey
+        scope: user
+        note: "runs ~/.glzr/glazewm/suppress-start-menu.ahk (mod alone does not open Start)"
 
   wsl:
     # Base OS only (`sudo apt-get install -y`). General CLIs belong in brew.

@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1`, `.glzr/zebar/**` | with `features.glazewm` | - |
+| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1`, `.glzr/glazewm/suppress-start-menu.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
 | scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
@@ -525,6 +525,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
   display through WMI and moves the workspace there whenever it is activated
   or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
+* Tapping mod alone does not open the Start menu (`Ctrl+Esc` still does).
+  GlazeWM only prevents that after its own keybindings, so
+  `suppress-start-menu.ahk` (AutoHotkey v2, a GlazeWM startup command) sends
+  an unassigned key on every Win press. It passes Win through and exits when
+  GlazeWM does.
 
 ### Zebar status bar
 

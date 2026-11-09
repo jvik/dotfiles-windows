@@ -22,6 +22,9 @@ general:
     # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
     # shows GlazeWM's workspaces and reserves screen space for itself.
     - 'shell-exec zebar'
+    # Tapping mod alone does not open the Start menu (see the script). It
+    # exits on its own after GlazeWM.
+    - 'shell-exec %userprofile%/.glzr/glazewm/suppress-start-menu.ahk'
   shutdown_commands:
     - 'shell-exec taskkill /IM zebar.exe /F'
   config_reload_commands: []
