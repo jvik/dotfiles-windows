@@ -8,6 +8,8 @@
 # update-workspace-config fails for a workspace that is not active, and does
 # not move one that is. So this finds the built-in display through WMI and
 # moves the workspace there whenever it is activated or the monitors change.
+# With an external monitor connected it also creates the workspace there if it
+# does not exist yet (GlazeWM only creates workspaces when they are focused).
 #
 # Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
 
@@ -78,6 +80,25 @@ function Get-Direction($From, $To) {
     if ($dy -gt 0) { return 'down' } else { return 'up' }
 }
 
+function Get-FocusedWorkspaceName {
+    foreach ($workspace in @((Invoke-GlazeWM @('query', 'workspaces')).data.workspaces)) {
+        if ($workspace.hasFocus) { return [string]$workspace.name }
+    }
+    return $null
+}
+
+# Creates the workspace on the built-in display, then gives focus back to the
+# workspace that had it. focus --workspace creates an inactive workspace on the
+# focused monitor, so focus the built-in display first.
+function New-WorkspaceOnMonitor([int]$Index) {
+    $previous = Get-FocusedWorkspaceName
+    Invoke-GlazeWM @('command', 'focus', '--monitor', [string]$Index) | Out-Null
+    Invoke-GlazeWM @('command', 'focus', '--workspace', $WorkspaceName) | Out-Null
+    if ($previous -and ($previous -ne $WorkspaceName)) {
+        Invoke-GlazeWM @('command', 'focus', '--workspace', $previous) | Out-Null
+    }
+}
+
 function Update-WorkspacePlacement {
     $displayIds = @(Get-BuiltInDisplayIds)
     if ($displayIds.Count -eq 0) { return }
@@ -85,6 +106,18 @@ function Update-WorkspacePlacement {
     $monitors = Get-Monitors
     $index = Find-BuiltInMonitorIndex $monitors $displayIds
     if ($index -lt 0) { return }
+
+    # With an external monitor connected, the workspace should exist on the
+    # built-in display from the start, not only once it is first opened.
+    # (keep_alive in config.yaml keeps it from being destroyed when it is empty
+    # and another workspace is shown there; without it this would respawn it
+    # over that workspace.)
+    if (($monitors.Count -gt 1) -and ($null -eq (Find-Workspace $monitors))) {
+        New-WorkspaceOnMonitor $index
+        $monitors = Get-Monitors
+        $index = Find-BuiltInMonitorIndex $monitors $displayIds
+        if ($index -lt 0) { return }
+    }
 
     # move-workspace steps one monitor at a time, so allow one step per monitor.
     for ($step = 0; $step -lt $monitors.Count; $step++) {

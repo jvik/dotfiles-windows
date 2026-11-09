@@ -103,7 +103,11 @@ workspaces:
   - name: '7'
   - name: '8'
   - name: '9'
+  # pin-laptop-workspace.ps1 creates it on the built-in display when an
+  # external monitor is connected; keep_alive stops GlazeWM from destroying it
+  # again while it is empty and hidden.
   - name: '10'
+    keep_alive: true
 
 window_rules:
   - commands: ['ignore']
