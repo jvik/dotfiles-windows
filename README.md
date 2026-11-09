@@ -486,8 +486,8 @@ while PowerToys runs); turn those on in PowerToys Settings.
 
 ## Focus follows mouse
 
-As in sway, a window gets keyboard focus when the pointer rests on it for
-150 ms, without being raised. `run_after_60-focus-follows-mouse` sets this on
+As in sway, a window gets keyboard focus as soon as the pointer is on it
+(no delay), without being raised. `run_after_60-focus-follows-mouse` sets this on
 every apply when it differs (it is Control Panel's "Activate a window by
 hovering over it with the mouse" plus the no-raise and delay options); to
 change it, edit the `$desired*` values at the top of the script.
@@ -556,9 +556,10 @@ tiling it. `home/dot_glzr/zebar/` holds `settings.json` (which widget starts)
 and the `topbar` widget pack: one bar per monitor, docked to the top edge so
 windows tile below it. Left: that monitor's workspaces (click to focus; the
 focused one is underlined in yellow), the binding mode, PAUSED, and on the
-focused monitor the tiling direction. Right: volume (click mutes, scroll
-changes it), network, CPU, memory, battery and the date with week number and
-time. Colors are the gruvbox palette of the window borders. The widget is plain
+focused monitor the tiling direction. Right: the current media session (click
+plays/pauses), keyboard layout, volume (click mutes, scroll changes it),
+network, download/upload rate, CPU, memory, C: usage, battery, the weather
+(located from the public IP) and the date with week number and time. Colors are the gruvbox palette of the window borders. The widget is plain
 HTML/JS (`bar.html`, `styles.css`) that loads the zebar client and the icon
 font from a CDN; Zebar caches them for a week. Zebar rewrites `settings.json`
 when widgets are toggled from its tray icon; the next apply restores it.

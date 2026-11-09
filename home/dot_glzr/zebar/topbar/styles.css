@@ -108,8 +108,31 @@ button {
   padding: 0 10px;
 }
 
-.audio {
+.audio,
+.media {
   cursor: pointer;
+}
+
+.media-title {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed-width rates so the modules to the right don't jump every refresh. */
+.traffic .rate {
+  min-width: 7ch;
+  margin-right: 6px;
+  text-align: right;
+}
+
+.traffic .rate:last-child {
+  margin-right: 0;
+}
+
+.traffic .mdi {
+  margin-right: 2px;
 }
 
 .muted,

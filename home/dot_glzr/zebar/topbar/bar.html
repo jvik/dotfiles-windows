@@ -38,6 +38,22 @@
       const VOLUME_STEP_PERCENT = 5;
       const BYTES_PER_GB = 1024 ** 3;
       const MS_PER_MINUTE = 60 * 1000;
+      const SYSTEM_DRIVE = 'C:';
+      // Zebar's WeatherStatus values mapped to MDI icons.
+      const WEATHER_ICONS = {
+        clear_day: 'weather-sunny',
+        clear_night: 'weather-night',
+        cloudy_day: 'weather-partly-cloudy',
+        cloudy_night: 'weather-night-partly-cloudy',
+        light_rain_day: 'weather-rainy',
+        light_rain_night: 'weather-rainy',
+        heavy_rain_day: 'weather-pouring',
+        heavy_rain_night: 'weather-pouring',
+        snow_day: 'weather-snowy',
+        snow_night: 'weather-snowy',
+        thunder_day: 'weather-lightning',
+        thunder_night: 'weather-lightning',
+      };
 
       const providers = zebar.createProviderGroup({
         glazewm: { type: 'glazewm' },
@@ -45,7 +61,12 @@
         network: { type: 'network' },
         cpu: { type: 'cpu' },
         memory: { type: 'memory' },
+        disk: { type: 'disk' },
         battery: { type: 'battery' },
+        media: { type: 'media' },
+        keyboard: { type: 'keyboard' },
+        // Without coordinates Zebar looks up the location from the public IP.
+        weather: { type: 'weather' },
         day: {
           type: 'date',
           formatting: "EEE d. MMM 'uke' W",
@@ -102,6 +123,24 @@
 
       // ---- Right: system status ----
 
+      function renderMedia(media) {
+        const session = media?.currentSession;
+        if (!session) return '';
+        const text = session.artist ? `${session.artist} - ${session.title}` : session.title;
+        return module(
+          classNames('media', !session.isPlaying && 'muted'),
+          session.isPlaying ? 'play' : 'pause',
+          `<span class="media-title">${escapeHtml(text)}</span>`,
+          text,
+        );
+      }
+
+      // Windows reports the layout as a culture name such as "nb-NO".
+      function renderKeyboard(keyboard) {
+        if (!keyboard?.layout) return '';
+        return module('keyboard', 'keyboard-outline', escapeHtml(keyboard.layout));
+      }
+
       function renderAudio(audio) {
         const device = audio?.defaultPlaybackDevice;
         if (!device) return '';
@@ -130,6 +169,18 @@
         return module('network', `wifi-strength-${bars}`, escapeHtml(gateway?.ssid ?? ''));
       }
 
+      // Throughput per second since the network provider's last refresh.
+      function renderTraffic(network) {
+        const traffic = network?.traffic;
+        if (!traffic) return '';
+        return (
+          `<div class="module traffic">` +
+          `${icon('arrow-down')}<span class="rate">${formatSize(traffic.received)}</span>` +
+          `${icon('arrow-up')}<span class="rate">${formatSize(traffic.transmitted)}</span>` +
+          `</div>`
+        );
+      }
+
       function renderCpu(cpu) {
         if (!cpu) return '';
         return module(usageClasses('cpu', cpu.usage), 'cpu-64-bit', `${Math.round(cpu.usage)}%`);
@@ -144,6 +195,29 @@
           'memory',
           `${Math.round(memory.usage)}%`,
           `${used}G / ${total}G RAM`,
+        );
+      }
+
+      function renderDisk(disk) {
+        const system = disk?.disks.find(entry => entry.mountPoint.startsWith(SYSTEM_DRIVE));
+        if (!system) return '';
+        const total = system.totalSpace.bytes;
+        const usage = total ? ((total - system.availableSpace.bytes) / total) * 100 : 0;
+        return module(
+          usageClasses('disk', usage),
+          'harddisk',
+          `${Math.round(usage)}%`,
+          `${formatSize(system.availableSpace)} free of ${formatSize(system.totalSpace)} on ${SYSTEM_DRIVE}`,
+        );
+      }
+
+      function renderWeather(weather) {
+        if (!weather) return '';
+        return module(
+          'weather',
+          WEATHER_ICONS[weather.status] ?? 'weather-cloudy',
+          `${Math.round(weather.celsiusTemp)}&deg;`,
+          `Wind ${Math.round(weather.windSpeed)} km/h`,
         );
       }
 
@@ -182,6 +256,12 @@
         if (milliseconds == null) return '';
         const minutes = Math.round(milliseconds / MS_PER_MINUTE);
         return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+      }
+
+      // A DataSizeMeasure from Zebar, e.g. "1.2 MB".
+      function formatSize(measure) {
+        const digits = measure.siValue < 10 ? 1 : 0;
+        return `${measure.siValue.toFixed(digits)} ${measure.siUnit}`;
       }
 
       function usageClasses(name, usage) {
@@ -233,11 +313,16 @@
         setHtml(
           right,
           [
+            renderMedia(output.media),
+            renderKeyboard(output.keyboard),
             renderAudio(output.audio),
             renderNetwork(output.network),
+            renderTraffic(output.network),
             renderCpu(output.cpu),
             renderMemory(output.memory),
+            renderDisk(output.disk),
             renderBattery(output.battery),
+            renderWeather(output.weather),
             renderClock(output.day, output.time),
           ].join(''),
         );
@@ -252,11 +337,16 @@
       });
 
       // Like waybar's speaker module: click toggles mute, scroll sets volume.
+      // Clicking the media module toggles play/pause.
       right.addEventListener('click', event => {
-        const audio = providers.outputMap.audio;
+        const { audio, media } = providers.outputMap;
         const device = audio?.defaultPlaybackDevice;
         if (device && event.target.closest('.audio')) {
           audio.setMute(!device.isMuted, { deviceId: device.deviceId }).catch(console.error);
+        }
+        const session = media?.currentSession;
+        if (session && event.target.closest('.media')) {
+          media.togglePlayPause({ sessionId: session.sessionId }).catch(console.error);
         }
       });
 

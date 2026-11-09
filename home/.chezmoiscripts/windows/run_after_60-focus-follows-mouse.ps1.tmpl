@@ -21,9 +21,10 @@ $ErrorActionPreference = 'Stop'
 
 $desiredTracking = $true
 $desiredRaise = $false
-# How long (ms) the pointer must rest on a window before it gets focus, so
-# windows crossed on the way to another one do not grab it (and close menus).
-$desiredDelayMs = 150
+# How long (ms) the pointer must rest on a window before it gets focus. 0 is
+# instant, as in sway; raise it if windows crossed on the way to another one
+# grab focus (and close open menus).
+$desiredDelayMs = 0
 
 # Bits in the first byte of UserPreferencesMask.
 $trackingBit = 0x01
