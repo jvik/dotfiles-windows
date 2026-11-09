@@ -153,6 +153,20 @@ window_rules:
     match:
       - window_process: { equals: 'CalculatorApp' }
 
+  # Dialogs that otherwise sink behind the tiled windows: float them, kept on
+  # top. Unlike Bitwarden they stay on their workspace.
+  - commands: ['set-floating --centered --shown-on-top']
+    match:
+      # Explorer's "Extract Compressed (Zipped) Folders" wizard (title is
+      # localized, so match the class) and its copy-progress window.
+      - window_process: { equals: 'explorer' }
+        window_class: { regex: '^(NativeHWNDHost|OperationStatusWindow)$' }
+      # Firefox's Library window (Downloads, History, Bookmarks). Browser
+      # windows end in " — Mozilla Firefox", so an exact title is safe.
+      - window_process: { equals: 'firefox' }
+        window_class: { equals: 'MozillaWindowClass' }
+        window_title: { equals: 'Library' }
+
 binding_modes:
   # sway: mode "resize"
   - name: 'resize'
