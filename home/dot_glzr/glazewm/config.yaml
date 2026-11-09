@@ -25,6 +25,8 @@ general:
     # Tapping mod alone does not open the Start menu (see the script). It
     # exits on its own after GlazeWM.
     - 'shell-exec %userprofile%/.glzr/glazewm/suppress-start-menu.ahk'
+    # Bitwarden stays above other windows (see the script and window_rules).
+    - 'shell-exec %userprofile%/.glzr/glazewm/bitwarden-on-top.ahk'
   shutdown_commands:
     - 'shell-exec taskkill /IM zebar.exe /F'
   config_reload_commands: []
@@ -126,10 +128,14 @@ window_rules:
       - window_process: { equals: 'POWERPNT' }
         window_class: { not_regex: 'PPTFrameClass' }
 
-  # sway: for_window [class="Bitwarden"] floating enable, and Calculator.
+      # Bitwarden: floating + sticky. GlazeWM has no sticky, but an ignored
+      # window is never hidden on a workspace switch, so it follows you.
+      # bitwarden-on-top.ahk keeps it above the tiled windows.
+      - window_process: { equals: 'Bitwarden' }
+
+  # sway: for_window [app_id="...Calculator"] floating enable.
   - commands: ['set-floating --centered']
     match:
-      - window_process: { equals: 'Bitwarden' }
       - window_process: { equals: 'CalculatorApp' }
 
 binding_modes:
@@ -169,7 +175,7 @@ keybindings:
     bindings: ['lwin+shift+right']
 
   # Layout. sway's tabbed/stacking layouts, sticky and scratchpad have no
-  # GlazeWM equivalent.
+  # GlazeWM equivalent (window_rules fakes sticky with 'ignore').
   - commands: ['toggle-tiling-direction']
     bindings: ['lwin+e']
   - commands: ['toggle-fullscreen']
