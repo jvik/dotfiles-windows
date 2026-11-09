@@ -13,6 +13,7 @@ A_IconTip := "GlazeWM helpers"
 
 #Include %A_ScriptDir%\suppress-start-menu.ahk
 #Include %A_ScriptDir%\bitwarden-on-top.ahk
+#Include %A_ScriptDir%\greenshot-dialogs-on-top.ahk
 
 ExitWhenGlazeWmIsGone() {
     if !ProcessExist("glazewm.exe")

@@ -76,6 +76,9 @@ packages:
       - id: Obsidian.Obsidian
         scope: user
         note: "vault vimrc deployed when data obsidianVault is set"
+      - id: Greenshot.Greenshot
+        scope: user
+        note: "screenshots with annotation (Inno installer; user scope avoids elevation)"
 
       # --- optional, not part of the agreed set (ids verified; uncomment to use) ---
       # - id: Mozilla.Firefox            # browser; installed by IT here. user.js: run_after_50-firefox-userjs

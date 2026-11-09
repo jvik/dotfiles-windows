@@ -533,6 +533,9 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   sticky: a window rule ignores them, so they stay visible on every workspace,
   and `bitwarden-on-top.ahk` keeps them always on top. It also centres each new
   pop-out at a sensible size.
+* Greenshot's dialogs ("Save image?", Save As) are owned by its editor window,
+  which GlazeWM's window rules do not reach, so `greenshot-dialogs-on-top.ahk`
+  keeps them always on top.
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more
