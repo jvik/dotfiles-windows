@@ -1,0 +1,280 @@
+<!doctype html>
+<!--
+  GlazeWM status bar, laid out like the waybar config in jvik/dotfiles:
+  workspaces and binding mode on the left; audio, network, CPU, memory,
+  battery and clock on the right. Zebar opens one bar per monitor (preset
+  "default" in zpack.json), and each bar lists only the workspaces on its own
+  monitor, like waybar's "all-outputs": false.
+
+  Plain DOM instead of the starter pack's React + in-browser Babel, so the only
+  remote files are the zebar client and the icon font. Zebar caches both for a
+  week (caching in zpack.json), so the bar also starts offline.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Material Design Icons; names at https://pictogrammers.com/library/mdi/ -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bar">
+      <div class="left" id="left"></div>
+      <div class="right" id="right"></div>
+    </div>
+
+    <script type="module">
+      import * as zebar from 'https://esm.sh/zebar@3.3.1';
+
+      const HIGH_USAGE_PERCENT = 85;
+      // waybar's battery states.
+      const BATTERY_WARNING_PERCENT = 30;
+      const BATTERY_CRITICAL_PERCENT = 15;
+      // waybar's scroll step on the speaker module.
+      const VOLUME_STEP_PERCENT = 5;
+      const BYTES_PER_GB = 1024 ** 3;
+      const MS_PER_MINUTE = 60 * 1000;
+
+      const providers = zebar.createProviderGroup({
+        glazewm: { type: 'glazewm' },
+        audio: { type: 'audio' },
+        network: { type: 'network' },
+        cpu: { type: 'cpu' },
+        memory: { type: 'memory' },
+        battery: { type: 'battery' },
+        day: {
+          type: 'date',
+          formatting: "EEE d. MMM 'uke' W",
+          locale: 'nb',
+          refreshInterval: MS_PER_MINUTE,
+        },
+        time: { type: 'date', formatting: 'HH:mm' },
+      });
+
+      const left = document.getElementById('left');
+      const right = document.getElementById('right');
+
+      // ---- Left: GlazeWM ----
+
+      function renderLeft(glazewm) {
+        if (!glazewm) return '';
+
+        const parts = glazewm.currentWorkspaces.map(workspace =>
+          button(
+            classNames(
+              'workspace',
+              workspace.isDisplayed && 'displayed',
+              workspace.hasFocus && 'focused',
+            ),
+            `focus --workspace ${workspace.name}`,
+            escapeHtml(workspace.displayName ?? workspace.name),
+          ),
+        );
+
+        for (const mode of glazewm.bindingModes) {
+          parts.push(
+            button(
+              'mode',
+              `wm-disable-binding-mode --name ${mode.name}`,
+              escapeHtml(mode.displayName ?? mode.name),
+            ),
+          );
+        }
+
+        if (glazewm.isPaused) {
+          parts.push(button('paused', 'wm-toggle-pause', `${icon('pause')}paused`));
+        }
+
+        // The tiling direction is the focused container's, so only the bar on
+        // the focused monitor shows it.
+        if (glazewm.currentMonitor?.hasFocus) {
+          const direction =
+            glazewm.tilingDirection === 'horizontal' ? 'swap-horizontal' : 'swap-vertical';
+          parts.push(button('tiling-direction', 'toggle-tiling-direction', icon(direction)));
+        }
+
+        return parts.join('');
+      }
+
+      // ---- Right: system status ----
+
+      function renderAudio(audio) {
+        const device = audio?.defaultPlaybackDevice;
+        if (!device) return '';
+        let name = 'volume-low';
+        if (device.isMuted) name = 'volume-off';
+        else if (device.volume >= 66) name = 'volume-high';
+        else if (device.volume >= 33) name = 'volume-medium';
+        return module(
+          classNames('audio', device.isMuted && 'muted'),
+          name,
+          `${device.volume}%`,
+          device.name,
+        );
+      }
+
+      function renderNetwork(network) {
+        if (!network) return '';
+        const type = network.defaultInterface?.type;
+        if (!type) return module('network muted', 'wifi-strength-off-outline', '');
+        if (type === 'ethernet') return module('network', 'ethernet', '');
+        if (type !== 'wifi') return module('network', 'lan', ''); // VPN and others
+
+        const gateway = network.defaultGateway;
+        const strength = gateway?.signalStrength ?? 0;
+        const bars = strength >= 75 ? 4 : strength >= 50 ? 3 : strength >= 25 ? 2 : 1;
+        return module('network', `wifi-strength-${bars}`, escapeHtml(gateway?.ssid ?? ''));
+      }
+
+      function renderCpu(cpu) {
+        if (!cpu) return '';
+        return module(usageClasses('cpu', cpu.usage), 'cpu-64-bit', `${Math.round(cpu.usage)}%`);
+      }
+
+      function renderMemory(memory) {
+        if (!memory) return '';
+        const used = (memory.usedMemory / BYTES_PER_GB).toFixed(1);
+        const total = (memory.totalMemory / BYTES_PER_GB).toFixed(1);
+        return module(
+          usageClasses('memory', memory.usage),
+          'memory',
+          `${Math.round(memory.usage)}%`,
+          `${used}G / ${total}G RAM`,
+        );
+      }
+
+      function renderBattery(battery) {
+        if (!battery) return '';
+        const percent = Math.round(battery.chargePercent);
+        let state = '';
+        if (battery.isCharging) state = 'charging';
+        else if (percent <= BATTERY_CRITICAL_PERCENT) state = 'critical';
+        else if (percent <= BATTERY_WARNING_PERCENT) state = 'warning';
+        const remaining = battery.isCharging ? battery.timeTillFull : battery.timeTillEmpty;
+        return module(
+          classNames('battery', state),
+          batteryIcon(percent, battery.isCharging),
+          `${percent}%`,
+          formatDuration(remaining),
+        );
+      }
+
+      function renderClock(day, time) {
+        if (!time) return '';
+        const dayText = day ? `<span class="day">${escapeHtml(day.formatted)}</span>` : '';
+        return `<div class="module clock">${dayText}${escapeHtml(time.formatted)}</div>`;
+      }
+
+      function batteryIcon(percent, isCharging) {
+        if (isCharging) return 'battery-charging';
+        const tens = Math.round(percent / 10) * 10;
+        if (tens >= 100) return 'battery';
+        if (tens <= 0) return 'battery-outline';
+        return `battery-${tens}`;
+      }
+
+      // Zebar reports battery times in milliseconds, or null when unknown.
+      function formatDuration(milliseconds) {
+        if (milliseconds == null) return '';
+        const minutes = Math.round(milliseconds / MS_PER_MINUTE);
+        return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+      }
+
+      function usageClasses(name, usage) {
+        return classNames(name, usage > HIGH_USAGE_PERCENT && 'high');
+      }
+
+      // ---- HTML helpers ----
+
+      function button(classes, command, content) {
+        return `<button class="${classes}" data-command="${escapeHtml(command)}">${content}</button>`;
+      }
+
+      // `text` must already be escaped; `title` is escaped here.
+      function module(classes, iconName, text, title = '') {
+        const titleAttribute = title ? ` title="${escapeHtml(title)}"` : '';
+        return `<div class="module ${classes}"${titleAttribute}>${icon(iconName)}${text}</div>`;
+      }
+
+      function icon(name) {
+        return `<i class="mdi mdi-${name}"></i>`;
+      }
+
+      function classNames(...names) {
+        return names.filter(Boolean).join(' ');
+      }
+
+      const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+      function escapeHtml(text) {
+        return String(text).replace(/[&<>"']/g, character => HTML_ESCAPES[character]);
+      }
+
+      // ---- Rendering and input ----
+
+      // Providers update every second (the clock), so only touch the DOM when
+      // the markup changed; rebuilding it under the cursor would reset hover
+      // and could swallow a click.
+      const renderedHtml = new Map();
+
+      function setHtml(element, html) {
+        if (renderedHtml.get(element) === html) return;
+        renderedHtml.set(element, html);
+        element.innerHTML = html;
+      }
+
+      function render() {
+        const output = providers.outputMap;
+        setHtml(left, renderLeft(output.glazewm));
+        setHtml(
+          right,
+          [
+            renderAudio(output.audio),
+            renderNetwork(output.network),
+            renderCpu(output.cpu),
+            renderMemory(output.memory),
+            renderBattery(output.battery),
+            renderClock(output.day, output.time),
+          ].join(''),
+        );
+      }
+
+      left.addEventListener('click', event => {
+        const target = event.target.closest('button[data-command]');
+        const glazewm = providers.outputMap.glazewm;
+        if (target && glazewm) {
+          glazewm.runCommand(target.dataset.command).catch(console.error);
+        }
+      });
+
+      // Like waybar's speaker module: click toggles mute, scroll sets volume.
+      right.addEventListener('click', event => {
+        const audio = providers.outputMap.audio;
+        const device = audio?.defaultPlaybackDevice;
+        if (device && event.target.closest('.audio')) {
+          audio.setMute(!device.isMuted, { deviceId: device.deviceId }).catch(console.error);
+        }
+      });
+
+      right.addEventListener(
+        'wheel',
+        event => {
+          const audio = providers.outputMap.audio;
+          const device = audio?.defaultPlaybackDevice;
+          if (!device || !event.target.closest('.audio')) return;
+          const step = event.deltaY < 0 ? VOLUME_STEP_PERCENT : -VOLUME_STEP_PERCENT;
+          const volume = Math.min(100, Math.max(0, device.volume + step));
+          audio.setVolume(volume, { deviceId: device.deviceId }).catch(console.error);
+        },
+        { passive: true },
+      );
+
+      providers.onOutput(render);
+      render();
+    </script>
+  </body>
+</html>

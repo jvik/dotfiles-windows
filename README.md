@@ -49,7 +49,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1` | with `features.glazewm` | - |
+| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/pin-laptop-workspace.ps1`, `.glzr/zebar/**` | with `features.glazewm` | - |
 | scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
@@ -175,7 +175,7 @@ the stored answers.
 | `features.docker` | `true` | Docker Engine (docker-ce) in WSL |
 | `features.agentSandbox` | `true` | herdr, `agent-sandbox`, `new-worktree`, `hr`, the `as*` abbrs (WSL) |
 | `features.powertoys` | `true` | PowerToys + Keyboard Manager remaps (Windows) |
-| `features.glazewm` | `true` | GlazeWM tiling window manager, started at sign-in (Windows) |
+| `features.glazewm` | `true` | GlazeWM tiling window manager, started at sign-in, with the Zebar status bar (Windows) |
 
 Only `home/.chezmoi.yaml.tmpl` looks at the OS. It writes `isWindows`, `isWSL`
 (linux and a kernel osrelease containing "microsoft") and `isLinux`, and
@@ -526,7 +526,22 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   display through WMI and moves the workspace there whenever it is activated
   or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
 
-The winget package is installed with the other feature-gated lists, and
+### Zebar status bar
+
+[Zebar](https://github.com/glzr-io/zebar) replaces waybar: GlazeWM starts it
+(`startup_commands`) and kills it on exit, and a window rule keeps GlazeWM from
+tiling it. `home/dot_glzr/zebar/` holds `settings.json` (which widget starts)
+and the `topbar` widget pack: one bar per monitor, docked to the top edge so
+windows tile below it. Left: that monitor's workspaces (click to focus; the
+focused one is underlined in yellow), the binding mode, PAUSED, and on the
+focused monitor the tiling direction. Right: volume (click mutes, scroll
+changes it), network, CPU, memory, battery and the date with week number and
+time. Colors are the gruvbox palette of the window borders. The widget is plain
+HTML/JS (`bar.html`, `styles.css`) that loads the zebar client and the icon
+font from a CDN; Zebar caches them for a week. Zebar rewrites `settings.json`
+when widgets are toggled from its tray icon; the next apply restores it.
+
+The winget packages are installed with the other feature-gated lists, and
 `run_after_80-glazewm-startup` adds GlazeWM to the per-user startup list
 (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), or removes it when the
 feature is off. After a `chezmoi apply` that changes the config, reload it with

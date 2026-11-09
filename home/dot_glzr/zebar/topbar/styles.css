@@ -1,0 +1,139 @@
+/*
+ * Gruvbox dark, the palette of the sway theme and of GlazeWM's window
+ * borders (focused #fabd2f, unfocused #504945 in glazewm/config.yaml).
+ */
+:root {
+  --bg: #282828;
+  --bg1: #3c3836;
+  --bg2: #504945;
+  --fg: #ebdbb2;
+  --fg-dim: #a89984;
+  --gray: #928374;
+  --red: #fb4934;
+  --green: #b8bb26;
+  --yellow: #fabd2f;
+
+  --font-size: 12px;
+  --icon-size: 14px;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  font-size: var(--font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.bar,
+.left,
+.right {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+.bar {
+  justify-content: space-between;
+}
+
+button {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.mdi {
+  margin-right: 5px;
+  color: var(--fg-dim);
+  font-size: var(--icon-size);
+}
+
+/* ---- Left ---- */
+
+.workspace {
+  color: var(--fg-dim);
+}
+
+.workspace:hover,
+.workspace.displayed {
+  background: var(--bg1);
+  color: var(--fg);
+}
+
+.workspace.focused {
+  background: var(--bg2);
+  color: var(--fg);
+  box-shadow: inset 0 -2px var(--yellow);
+}
+
+/* waybar showed sway's mode in italics. */
+.mode {
+  background: var(--yellow);
+  color: var(--bg);
+  font-style: italic;
+}
+
+.paused {
+  background: var(--red);
+  color: var(--bg);
+}
+
+.paused .mdi {
+  color: inherit;
+}
+
+.tiling-direction .mdi {
+  margin-right: 0;
+}
+
+/* ---- Right ---- */
+
+.module {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.audio {
+  cursor: pointer;
+}
+
+.muted,
+.muted .mdi {
+  color: var(--gray);
+}
+
+.high,
+.high .mdi,
+.critical,
+.critical .mdi {
+  color: var(--red);
+}
+
+.warning,
+.warning .mdi {
+  color: var(--yellow);
+}
+
+.charging .mdi {
+  color: var(--green);
+}
+
+.clock .day {
+  margin-right: 8px;
+  color: var(--fg-dim);
+}

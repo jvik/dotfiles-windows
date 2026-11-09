@@ -96,9 +96,12 @@ packages:
         note: "per-user installer (PowerToysUserSetup)"
 
     # Installed only when .features.glazewm (tiling window manager, config in
-    # ~/.glzr/glazewm/config.yaml, started at sign-in by run_after_80).
+    # ~/.glzr/glazewm/config.yaml, started at sign-in by run_after_80; Zebar is
+    # its status bar, config in ~/.glzr/zebar, started by GlazeWM).
     glazewm:
       - id: glzr-io.glazewm
+        note: "MSI; may prompt for elevation"
+      - id: glzr-io.zebar
         note: "MSI; may prompt for elevation"
 
   wsl:

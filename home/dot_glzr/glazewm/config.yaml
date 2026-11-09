@@ -19,7 +19,11 @@ general:
   startup_commands:
     # Keeps workspace 10 on the laptop's built-in display (see the script).
     - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/pin-laptop-workspace.ps1'
-  shutdown_commands: []
+    # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
+    # shows GlazeWM's workspaces and reserves screen space for itself.
+    - 'shell-exec zebar'
+  shutdown_commands:
+    - 'shell-exec taskkill /IM zebar.exe /F'
   config_reload_commands: []
 
   # Windows' own active window tracking does this (see header).
@@ -103,7 +107,9 @@ window_rules:
       - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
         window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }
 
-      # From GlazeWM's sample config: PowerToys and Office pop-ups.
+      # From GlazeWM's sample config: Zebar's bars, PowerToys and Office
+      # pop-ups.
+      - window_process: { equals: 'zebar' }
       - window_process: { equals: 'PowerToys' }
         window_class: { regex: 'HwndWrapper\[PowerToys\.PowerAccent.*?\]' }
       - window_title: { equals: 'Command Palette' }

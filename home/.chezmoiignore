@@ -49,7 +49,7 @@ scripts/**
 {{- end }}
 
 {{- if not (and .isWindows (dig "glazewm" false .features)) }}
-# ---- features.glazewm: GlazeWM config (Windows) ----
+# ---- features.glazewm: GlazeWM and Zebar config (Windows) ----
 .glzr
 .glzr/**
 {{- end }}
