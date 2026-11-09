@@ -254,7 +254,7 @@ Get-Content <file> -Raw | chezmoi execute-template @flags   # render one templat
 - WSL config: hand-write `cfg-wsl.yaml` with `isWSL: true`, `isWindows: false`,
   `isLinux: true` and every data key (`name`, `email`, `personalEmail`,
   `signingKey`, `githubOrg`, `wslDistro`, `windowsUser`, `obsidianVault`,
-  `features.docker/agentSandbox/powertoys`). Also test a variant with all
+  `features.docker/agentSandbox/powertoys/glazewm`). Also test a variant with all
   features off and an empty `signingKey`.
 - Allowed: `execute-template`, `cat`, `managed`, `ignored`, `data`, `diff`,
   `doctor`, `apply --dry-run`. Never `apply` without `--dry-run`, never `init`

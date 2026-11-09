@@ -95,6 +95,12 @@ packages:
         scope: user
         note: "per-user installer (PowerToysUserSetup)"
 
+    # Installed only when .features.glazewm (tiling window manager, config in
+    # ~/.glzr/glazewm/config.yaml, started at sign-in by run_after_80).
+    glazewm:
+      - id: glzr-io.glazewm
+        note: "MSI; may prompt for elevation"
+
   wsl:
     # Base OS only (`sudo apt-get install -y`). General CLIs belong in brew.
     # fish comes from ppa:fish-shell/release-4, which the apt script adds

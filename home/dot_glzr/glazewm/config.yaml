@@ -1,0 +1,237 @@
+# GlazeWM config (features.glazewm), ported from the sway config in
+# jvik/dotfiles. Schema: GlazeWM v3 sample-config.yaml.
+#
+# mod is `lwin`: a Scancode Map swaps Left Alt and Left Win (as sway's
+# altwin:swap_lalt_lwin did, run_after_35-keyboard-scancode-map), so lwin here
+# is the physical Left Alt key.
+#
+# Not bindable: anything with lwin+l. Windows locks the screen on Win+L before
+# any program sees it, so "right" is the arrow key only (mod+l locks, which is
+# close to sway's mod+Ctrl+l).
+#
+# Left to other tools on purpose, so they keep working while GlazeWM is
+# paused: mod+Enter (WezTerm), mod+Shift+f (Firefox), mod+Shift+q (close) and
+# mod+d (Command Palette) are PowerToys remaps (.chezmoidata/powertoys.yaml),
+# and focus follows mouse is the Windows setting from
+# run_after_60-focus-follows-mouse (it has the 150 ms delay GlazeWM lacks).
+
+general:
+  startup_commands: []
+  shutdown_commands: []
+  config_reload_commands: []
+
+  # Windows' own active window tracking does this (see header).
+  focus_follows_cursor: false
+
+  # sway: workspace_auto_back_and_forth no
+  toggle_workspace_on_refocus: false
+
+  cursor_jump:
+    enabled: true
+    trigger: 'monitor_focus'
+
+  hide_method: 'cloak'
+  show_all_in_taskbar: false
+
+gaps:
+  scale_with_dpi: true
+  # sway: gaps inner 8, gaps outer 4
+  inner_gap: '8px'
+  outer_gap:
+    top: '4px'
+    right: '4px'
+    bottom: '4px'
+    left: '4px'
+
+# Colors from sway's gruvbox theme (client.focused / client.unfocused).
+window_effects:
+  focused_window:
+    border:
+      enabled: true
+      color: '#fabd2f'
+    hide_title_bar:
+      enabled: false
+    corner_style:
+      enabled: false
+      style: 'square'
+    transparency:
+      enabled: false
+      opacity: '95%'
+
+  other_windows:
+    border:
+      enabled: true
+      color: '#504945'
+    hide_title_bar:
+      enabled: false
+    corner_style:
+      enabled: false
+      style: 'square'
+    # Set enabled: true (e.g. opacity '90%') to also dim unfocused windows.
+    transparency:
+      enabled: false
+      opacity: '90%'
+
+window_behavior:
+  initial_state: 'tiling'
+  state_defaults:
+    floating:
+      centered: true
+      shown_on_top: false
+    fullscreen:
+      maximized: false
+      shown_on_top: false
+
+workspaces:
+  - name: '1'
+  - name: '2'
+  - name: '3'
+  - name: '4'
+  - name: '5'
+  - name: '6'
+  - name: '7'
+  - name: '8'
+  - name: '9'
+  - name: '10'
+
+window_rules:
+  - commands: ['ignore']
+    match:
+      # Picture-in-picture windows of browsers (sway: floating + sticky).
+      - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
+        window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }
+
+      # From GlazeWM's sample config: PowerToys and Office pop-ups.
+      - window_process: { equals: 'PowerToys' }
+        window_class: { regex: 'HwndWrapper\[PowerToys\.PowerAccent.*?\]' }
+      - window_title: { equals: 'Command Palette' }
+        window_class: { equals: 'WinUIDesktopWin32WindowClass' }
+      - window_process: { equals: 'PowerToys' }
+        window_title: { regex: '.*? - Peek' }
+      - window_process: { equals: 'EXCEL' }
+        window_class: { not_regex: 'XLMAIN' }
+      - window_process: { equals: 'WINWORD' }
+        window_class: { not_regex: 'OpusApp' }
+      - window_process: { equals: 'POWERPNT' }
+        window_class: { not_regex: 'PPTFrameClass' }
+
+  # sway: for_window [class="Bitwarden"] floating enable, and Calculator.
+  - commands: ['set-floating --centered']
+    match:
+      - window_process: { equals: 'Bitwarden' }
+      - window_process: { equals: 'CalculatorApp' }
+
+binding_modes:
+  # sway: mode "resize"
+  - name: 'resize'
+    keybindings:
+      - commands: ['resize --width -2%']
+        bindings: ['h', 'left']
+      - commands: ['resize --width +2%']
+        bindings: ['l', 'right']
+      - commands: ['resize --height -2%']
+        bindings: ['k', 'up']
+      - commands: ['resize --height +2%']
+        bindings: ['j', 'down']
+      - commands: ['wm-disable-binding-mode --name resize']
+        bindings: ['escape', 'enter']
+
+keybindings:
+  # Focus (no lwin+l, see header).
+  - commands: ['focus --direction left']
+    bindings: ['lwin+h', 'lwin+left']
+  - commands: ['focus --direction down']
+    bindings: ['lwin+j', 'lwin+down']
+  - commands: ['focus --direction up']
+    bindings: ['lwin+k', 'lwin+up']
+  - commands: ['focus --direction right']
+    bindings: ['lwin+right']
+
+  # Move window.
+  - commands: ['move --direction left']
+    bindings: ['lwin+shift+h', 'lwin+shift+left']
+  - commands: ['move --direction down']
+    bindings: ['lwin+shift+j', 'lwin+shift+down']
+  - commands: ['move --direction up']
+    bindings: ['lwin+shift+k', 'lwin+shift+up']
+  - commands: ['move --direction right']
+    bindings: ['lwin+shift+right']
+
+  # Layout. sway's tabbed/stacking layouts, sticky and scratchpad have no
+  # GlazeWM equivalent.
+  - commands: ['toggle-tiling-direction']
+    bindings: ['lwin+e']
+  - commands: ['toggle-fullscreen']
+    bindings: ['lwin+f']
+  - commands: ['toggle-floating --centered']
+    bindings: ['lwin+shift+space']
+  - commands: ['wm-cycle-focus']
+    bindings: ['lwin+space']
+  - commands: ['wm-enable-binding-mode --name resize']
+    bindings: ['lwin+r']
+
+  # Workspaces. sway moved the window without following it.
+  - commands: ['focus --recent-workspace']
+    bindings: ['lwin+tab']
+  - commands: ['focus --workspace 1']
+    bindings: ['lwin+1']
+  - commands: ['focus --workspace 2']
+    bindings: ['lwin+2']
+  - commands: ['focus --workspace 3']
+    bindings: ['lwin+3']
+  - commands: ['focus --workspace 4']
+    bindings: ['lwin+4']
+  - commands: ['focus --workspace 5']
+    bindings: ['lwin+5']
+  - commands: ['focus --workspace 6']
+    bindings: ['lwin+6']
+  - commands: ['focus --workspace 7']
+    bindings: ['lwin+7']
+  - commands: ['focus --workspace 8']
+    bindings: ['lwin+8']
+  - commands: ['focus --workspace 9']
+    bindings: ['lwin+9']
+  - commands: ['focus --workspace 10']
+    bindings: ['lwin+0']
+  - commands: ['move --workspace 1']
+    bindings: ['lwin+shift+1']
+  - commands: ['move --workspace 2']
+    bindings: ['lwin+shift+2']
+  - commands: ['move --workspace 3']
+    bindings: ['lwin+shift+3']
+  - commands: ['move --workspace 4']
+    bindings: ['lwin+shift+4']
+  - commands: ['move --workspace 5']
+    bindings: ['lwin+shift+5']
+  - commands: ['move --workspace 6']
+    bindings: ['lwin+shift+6']
+  - commands: ['move --workspace 7']
+    bindings: ['lwin+shift+7']
+  - commands: ['move --workspace 8']
+    bindings: ['lwin+shift+8']
+  - commands: ['move --workspace 9']
+    bindings: ['lwin+shift+9']
+  - commands: ['move --workspace 10']
+    bindings: ['lwin+shift+0']
+
+  # Move the current workspace to another monitor.
+  - commands: ['move-workspace --direction left']
+    bindings: ['lwin+ctrl+shift+left']
+  - commands: ['move-workspace --direction right']
+    bindings: ['lwin+ctrl+shift+right']
+  - commands: ['move-workspace --direction up']
+    bindings: ['lwin+ctrl+shift+up']
+  - commands: ['move-workspace --direction down']
+    bindings: ['lwin+ctrl+shift+down']
+
+  # WM control. sway: mod+Shift+c re-placed windows after a display change,
+  # mod+Ctrl+Shift+c reloaded, mod+Shift+e exited.
+  - commands: ['wm-redraw']
+    bindings: ['lwin+shift+c']
+  - commands: ['wm-reload-config']
+    bindings: ['lwin+ctrl+shift+c']
+  - commands: ['wm-exit']
+    bindings: ['lwin+shift+e']
+  # Escape hatch: suspends tiling and every other binding until pressed again.
+  - commands: ['wm-toggle-pause']
+    bindings: ['lwin+shift+p']

@@ -49,7 +49,8 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| `.glzr/glazewm/config.yaml` | with `features.glazewm` | - |
+| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -174,6 +175,7 @@ the stored answers.
 | `features.docker` | `true` | Docker Engine (docker-ce) in WSL |
 | `features.agentSandbox` | `true` | herdr, `agent-sandbox`, `new-worktree`, `hr`, the `as*` abbrs (WSL) |
 | `features.powertoys` | `true` | PowerToys + Keyboard Manager remaps (Windows) |
+| `features.glazewm` | `true` | GlazeWM tiling window manager, started at sign-in (Windows) |
 
 Only `home/.chezmoi.yaml.tmpl` looks at the OS. It writes `isWindows`, `isWSL`
 (linux and a kernel osrelease containing "microsoft") and `isLinux`, and
@@ -195,7 +197,8 @@ There is one installer per tool, so nothing shadows anything on PATH:
 
 * winget entries are `{id, scope (user|machine, optional), note}`. Check the
   exact id with `winget show --id <id> -e` before adding it.
-* Feature-gated lists (`packages.windows.powertoys`, `packages.wsl.docker`)
+* Feature-gated lists (`packages.windows.powertoys`, `packages.windows.glazewm`,
+  `packages.wsl.docker`)
   are installed only when the matching `features.*` flag is true.
 * The install scripts render their list into their own text, so after an edit
   the next `chezmoi apply` re-runs **only** the script whose list changed
@@ -215,7 +218,8 @@ list changes, so run those commands by hand.
 
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
 the ssh-agent check, the keyboard Scancode Map check, the PowerToys remaps, the Obsidian vimrc copy, the
-Firefox user.js, focus follows mouse and the window borders.
+Firefox user.js, focus follows mouse, the window borders and the GlazeWM
+startup entry.
 
 ---
 
@@ -494,7 +498,34 @@ To show which window is active, as sway's focused border does,
 `run_after_70-window-borders` turns on Settings > Personalization > Colors >
 "Show accent color on title bars and window borders" on every apply. The active
 window gets an accent-colored title bar and 1px border, inactive ones stay grey.
-The color is the Windows accent color, set in the same Settings page.
+The color is the Windows accent color, set in the same Settings page. While
+GlazeWM runs, its border colors replace the accent color on the border.
+
+## GlazeWM (`features.glazewm`)
+
+[GlazeWM](https://github.com/glzr-io/glazewm) tiles windows the way sway did.
+`home/dot_glzr/glazewm/config.yaml` (target `~/.glzr/glazewm/config.yaml`) is
+ported from the old sway config. mod is `lwin`, which is the physical Left Alt
+key because of the Scancode Map ([Keyboard layout](#keyboard-layout)): `mod` + hjkl/arrows moves focus and
+`mod+Shift` + hjkl/arrows moves the window, `mod+1..0` switch workspace and `mod+Shift+1..0` move the
+window there, `mod+Tab` goes to the previous workspace, `mod+r` enters resize
+mode, `mod+e` toggles the split direction, `mod+f` fullscreen,
+`mod+Shift+space` floating, `mod+Shift+e` exits and `mod+Ctrl+Shift+c`
+reloads the config. The focused window gets sway's gruvbox yellow border.
+
+* `mod+l` cannot move focus right: Windows locks the screen on Win+L before any
+  program sees it. Use `mod+Right` (and `mod+Shift+Right` to move).
+* `mod+Enter`, `mod+Shift+f`, `mod+Shift+q` and `mod+d` stay PowerToys remaps,
+  and focus follows mouse stays the Windows setting, so they keep working while
+  GlazeWM is paused (`mod+Shift+p`) or not running.
+* sway's tabbed/stacking layouts, sticky windows and scratchpad have no
+  GlazeWM equivalent.
+
+The winget package is installed with the other feature-gated lists, and
+`run_after_80-glazewm-startup` adds GlazeWM to the per-user startup list
+(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), or removes it when the
+feature is off. After a `chezmoi apply` that changes the config, reload it with
+`mod+Ctrl+Shift+c`.
 
 ## Obsidian
 
