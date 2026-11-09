@@ -84,6 +84,14 @@ config.colors = selection_for_appearance(appearance)
 config.force_reverse_video_cursor = true
 -- config.default_cursor_style = 'BlinkingBlock' --
 
+-- TUI-er som Claude Code ber om blinkende markør (DECSCUSR) og flytter den
+-- rundt under redraw; blinking + fade-animasjon gjør det synlig som flimring.
+-- blink_rate = 0 overstyrer appens blink-forespørsel; Constant fjerner fade.
+config.default_cursor_style = "SteadyBlock"
+config.cursor_blink_rate = 0
+config.cursor_blink_ease_in = "Constant"
+config.cursor_blink_ease_out = "Constant"
+
 -- setup wsl domain --
 -- Every new tab/pane opens in WSL ({{ .wslDistro }}); fish is the login shell
 -- there (chsh), so no default_prog is needed. Start in the Linux home
