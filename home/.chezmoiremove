@@ -1,0 +1,5 @@
+# Targets chezmoi deletes on apply: files this repo once provisioned and no
+# longer does. Paths are relative to the home directory.
+
+# GlazeWM hotkey script that restored minimized windows; dropped.
+.glzr/glazewm/restore-minimized.ps1
