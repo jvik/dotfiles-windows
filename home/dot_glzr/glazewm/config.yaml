@@ -151,8 +151,12 @@ window_rules:
   # Home workspace of Teams and Slack. summon-app.ps1 (lwin+shift+t/s) fetches
   # them to the focused workspace and sends them back here; keep its
   # -HomeWorkspace default in sync. New Teams is ms-teams, classic Teams is
-  # Teams.
+  # Teams. Only when the window first appears: both apps change their title on
+  # every new message, and a rule that also ran on title_change would pull a
+  # fetched window back to 4.
   - commands: ['move --workspace 4']
+    on: ['manage']
+    run_once: true
     match:
       - window_process: { regex: '^(ms-teams|Teams|Slack)$' }
 
