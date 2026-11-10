@@ -600,6 +600,12 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   taking input; this needs Signal's "Minimize to system tray" setting. A
   window rule ignores Signal, so it floats on every workspace. Both drop-downs
   share `dropdown.ahk` for placing the window.
+* The Windows taskbar is hidden completely; the Zebar bar replaces it.
+  `mod+t` (the physical Alt+T) shows it as a normal taskbar and hides it again
+  (`hidden-taskbar.ahk`). Hidden, it is set to auto-hide so it frees its
+  space; the helpers restore that setting and show the taskbar when they exit.
+  It only touches Explorer's taskbar windows: Zebar's systray provider has a
+  hidden window of the same class.
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more
