@@ -579,6 +579,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
 * Greenshot's dialogs ("Save image?", Save As) are owned by its editor window,
   which GlazeWM's window rules do not reach, so `greenshot-dialogs-on-top.ahk`
   keeps them always on top.
+* New Outlook's reminders window is floating and sticky the same way as
+  Bitwarden: a window rule ignores it and `outlook-reminders-on-top.ahk` keeps
+  it always on top. It shares process and class with the main window, so both
+  match it by title ("Påminnelser – …" or "Reminders – …"); for another UI
+  language, add its word to both.
 * `Alt+Space` (the physical Win+Space) toggles M365 Copilot Chat as a floating
   drop-down (`copilot-chat.ahk`). It is an Edge app window
   (`msedge --app=https://m365.cloud.microsoft/chat`, work account) that a

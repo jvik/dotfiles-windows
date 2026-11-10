@@ -159,6 +159,16 @@ window_rules:
         window_class: { equals: 'Chrome_WidgetWin_1' }
         window_title: { regex: '^[^-]*Copilot[^-]*$' }
 
+      # New Outlook's reminders window, floating and sticky the same way;
+      # outlook-reminders-on-top.ahk keeps it above the tiled windows. It has
+      # the same process and class as the main window ("Outlook Host"), and
+      # GlazeWM matches nothing else, so only the title tells them apart.
+      # Titles are "<view> – <name> – Outlook", so list the word in each UI
+      # language. Keep in sync with REMINDERS_TITLE in the .ahk.
+      - window_process: { equals: 'olk' }
+        window_class: { equals: 'Outlook Host' }
+        window_title: { regex: '^(Påminnelser|Reminders) – ' }
+
   # Home workspace of Teams and Slack. summon-app.ps1 (lwin+shift+t/s) fetches
   # them to the focused workspace and sends them back here; keep its
   # -HomeWorkspace default in sync. New Teams is ms-teams, classic Teams is
