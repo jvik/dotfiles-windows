@@ -158,6 +158,10 @@ window_rules:
       - window_process: { equals: 'msedge' }
         window_class: { equals: 'Chrome_WidgetWin_1' }
         window_title: { regex: '^[^-]*Copilot[^-]*$' }
+      # Signal Desktop, toggled with mod+Shift+n by signal.ahk; floating and
+      # sticky the same way.
+      - window_process: { equals: 'Signal' }
+        window_class: { equals: 'Chrome_WidgetWin_1' }
 
       # New Outlook's reminders window, floating and sticky the same way;
       # outlook-reminders-on-top.ahk keeps it above the tiled windows. It has

@@ -42,7 +42,7 @@ ToggleCopilotChat() {
     else if WinActive(hwnd)
         WinHide hwnd
     else
-        ShowCopilotChat(hwnd)
+        ShowDropDown(hwnd, CHAT_W, CHAT_H)
 }
 
 FindCopilotChat() {
@@ -96,7 +96,7 @@ LaunchCopilotChat() {
         }
     }
     if copilotHwnd && WinExist(copilotHwnd)
-        ShowCopilotChat(copilotHwnd)
+        ShowDropDown(copilotHwnd, CHAT_W, CHAT_H)
 }
 
 IsEdgeAppWindow(hwnd) {
@@ -107,36 +107,6 @@ IsEdgeAppWindow(hwnd) {
         return title != "" && !RegExMatch(title, "Edge$")
     }
     return false
-}
-
-ShowCopilotChat(hwnd) {
-    monitor := MonitorUnderMouse()
-    if (WinGetMinMax(hwnd) = -1)
-        WinRestore hwnd
-    CenterOnMonitor(hwnd, monitor)
-    WinShow hwnd
-    WinSetAlwaysOnTop 1, hwnd
-    WinActivate hwnd
-}
-
-; Focus follows the mouse, so this is the monitor you are working on.
-MonitorUnderMouse() {
-    CoordMode "Mouse", "Screen"
-    MouseGetPos &x, &y
-    loop MonitorGetCount() {
-        MonitorGet A_Index, &l, &t, &r, &b
-        if (x >= l && x < r && y >= t && y < b)
-            return A_Index
-    }
-    return MonitorGetPrimary()
-}
-
-CenterOnMonitor(hwnd, monitor) {
-    scale := DllCall("GetDpiForWindow", "Ptr", hwnd, "UInt") / 96
-    MonitorGetWorkArea monitor, &l, &t, &r, &b
-    w := Min(Round(CHAT_W * scale), r - l)
-    h := Min(Round(CHAT_H * scale), b - t)
-    WinMove l + (r - l - w) // 2, t + (b - t - h) // 2, w, h, hwnd
 }
 
 ; A hidden window has no taskbar button, so leaving it hidden when the helpers

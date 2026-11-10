@@ -592,6 +592,14 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   hides it again when pressed while it has focus. It takes over Alt+Space from
   the window menu. If the window ever tiles instead, its title does not match
   `COPILOT_TITLE` (keep it in sync with the rule in `config.yaml`).
+* `mod+Shift+n` (the physical Alt+Shift+N) toggles Signal Desktop the same way
+  (`signal.ahk`): it starts Signal if needed, shows it centred and always on
+  top on the monitor under the mouse, and closes it to the tray when pressed
+  while it has focus. It lets Signal hide and show its own window (close, and
+  a second `Signal.exe`), since an Electron window shown with `WinShow` stops
+  taking input; this needs Signal's "Minimize to system tray" setting. A
+  window rule ignores Signal, so it floats on every workspace. Both drop-downs
+  share `dropdown.ahk` for placing the window.
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more

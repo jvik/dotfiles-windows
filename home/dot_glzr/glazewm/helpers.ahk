@@ -14,7 +14,9 @@ A_IconTip := "GlazeWM helpers"
 #Include %A_ScriptDir%\suppress-start-menu.ahk
 #Include %A_ScriptDir%\bitwarden-on-top.ahk
 #Include %A_ScriptDir%\greenshot-dialogs-on-top.ahk
+#Include %A_ScriptDir%\dropdown.ahk
 #Include %A_ScriptDir%\copilot-chat.ahk
+#Include %A_ScriptDir%\signal.ahk
 #Include %A_ScriptDir%\outlook-reminders-on-top.ahk
 
 ExitWhenGlazeWmIsGone() {
