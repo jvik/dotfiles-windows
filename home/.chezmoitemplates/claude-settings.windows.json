@@ -37,11 +37,7 @@
       "Read(~/AppData/Roaming/Bitwarden CLI/**)",
       "Read(~/AppData/Roaming/GitHub CLI/**)",
       "PowerShell(Invoke-Expression*)",
-      "PowerShell(Start-Process*-Verb*RunAs*)",
-      "PowerShell(*;*)",
-      "PowerShell(*&&*)",
-      "PowerShell(*||*)",
-      "PowerShell(*$(*)*)"
+      "PowerShell(Start-Process*-Verb*RunAs*)"
     ],
     "ask": [
       "PowerShell(*|*)",

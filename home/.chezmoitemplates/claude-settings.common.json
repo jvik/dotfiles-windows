@@ -46,13 +46,7 @@
       "Bash(find*-exec*)",
       "Bash(find*-execdir*)",
       "Bash(find*-delete*)",
-      "Bash(find*-fprintf*)",
-      "Bash(find*|*)",
-      "Bash(*;*)",
-      "Bash(*&&*)",
-      "Bash(*||*)",
-      "Bash(*`*)",
-      "Bash(*$(*)*)"
+      "Bash(find*-fprintf*)"
     ]
   }
 }
