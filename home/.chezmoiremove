@@ -3,3 +3,6 @@
 
 # GlazeWM hotkey script that restored minimized windows; dropped.
 .glzr/glazewm/restore-minimized.ps1
+
+# Slack-only first version of summon-app.ps1.
+.glzr/glazewm/summon-slack.ps1

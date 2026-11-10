@@ -148,6 +148,14 @@ window_rules:
         window_class: { equals: 'MozillaDialogClass' }
         window_title: { regex: '^Extension: \(Bitwarden Password Manager\)' }
 
+  # Home workspace of Teams and Slack. summon-app.ps1 (lwin+shift+t/s) fetches
+  # them to the focused workspace and sends them back here; keep its
+  # -HomeWorkspace default in sync. New Teams is ms-teams, classic Teams is
+  # Teams.
+  - commands: ['move --workspace 4']
+    match:
+      - window_process: { regex: '^(ms-teams|Teams|Slack)$' }
+
   # sway: for_window [app_id="...Calculator"] floating enable.
   - commands: ['set-floating --centered']
     match:
@@ -227,6 +235,13 @@ keybindings:
     bindings: ['lwin+space']
   - commands: ['wm-enable-binding-mode --name resize']
     bindings: ['lwin+r']
+
+  # Teams and Slack as scratchpads: fetch the app here, press again to send it
+  # home to workspace 4 (see summon-app.ps1).
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames ms-teams,Teams -LaunchUri msteams:']
+    bindings: ['lwin+shift+t']
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Slack -LaunchUri slack://open']
+    bindings: ['lwin+shift+s']
 
   # Workspaces. sway moved the window without following it.
   - commands: ['focus --recent-workspace']

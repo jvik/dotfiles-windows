@@ -537,6 +537,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   GlazeWM is paused (`mod+Shift+p`) or not running.
 * sway's tabbed/stacking layouts, sticky windows and scratchpad have no
   GlazeWM equivalent.
+* Teams and Slack live on workspace 4 (a window rule). `mod+Shift+t` (Teams)
+  and `mod+Shift+s` (Slack) run `summon-app.ps1`, which fetches the app to the
+  current workspace and focuses it; pressing again sends it back to 4. If the
+  app has no window (not running or in the tray) it is opened first. Errors go
+  to `%TEMP%\glazewm-summon-app.log`.
 * Workspace 10 (`mod+0`) stays on the laptop's built-in display.
   `bind_to_monitor` only takes a position-based index, so
   `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
