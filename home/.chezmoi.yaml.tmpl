@@ -20,12 +20,6 @@
 {{-   $isWSL = .chezmoi.kernel.osrelease | default "" | lower | contains "microsoft" -}}
 {{- end -}}
 
-{{- /* The WSL source must live on ext4 (~/.local/share/chezmoi), never on
-       /mnt/c: 9P is slow and NTFS brings CRLF/permission trouble. */ -}}
-{{- if and $isWSL (hasPrefix "/mnt/" .chezmoi.workingTree) -}}
-{{-   fail (printf "chezmoi source %q is on a Windows drive. Inside WSL, clone it to ext4 instead, e.g. `chezmoi init --apply %s` (git clones it to ~/.local/share/chezmoi)." .chezmoi.workingTree .chezmoi.workingTree) -}}
-{{- end -}}
-
 {{- /* Git identity: work by default, personal via includeIf gitdir:~/src/personal/ */ -}}
 {{- $name := promptStringOnce . "name" "Git user.name" "Jorgen V" -}}
 {{- $email := promptStringOnce . "email" "Work email (default git identity)" "jorgen.vik@kystverket.no" -}}
@@ -70,8 +64,12 @@
      .chezmoi.workingTree is the repo root (the git work tree, or the --source
      dir when there is no .git yet); .chezmoi.sourceDir would be <root>/home
      because of .chezmoiroot, and chezmoi must be pointed at the root so it
-     reads .chezmoiroot itself. On Windows this is the local clone that
-     bootstrap.ps1 passed with --source; in WSL it is ~/.local/share/chezmoi. */ -}}
+     reads .chezmoiroot itself. Both sides use the same Windows checkout:
+     bootstrap.ps1 passes it with --source on Windows; in WSL it is the same
+     directory under /mnt/c, passed by bootstrap-wsl.sh and by
+     run_after_90-wsl-apply. Reading it over 9P adds about a second per WSL
+     apply; .gitattributes and .editorconfig keep it LF, and chezmoi takes
+     file modes from the source names, not from NTFS. */ -}}
 sourceDir: {{ .chezmoi.workingTree | quote }}
 
 {{/* No [interpreters] override: chezmoi runs .ps1 with pwsh when found and

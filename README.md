@@ -1,7 +1,7 @@
 # dotfiles-windows
 
 Work machine setup for Windows 11 + WSL2 Ubuntu, managed by
-[chezmoi](https://www.chezmoi.io/). One repo, applied from both sides:
+[chezmoi](https://www.chezmoi.io/). One checkout, applied to both sides:
 
 * **Windows**: `chezmoi.exe` targets `%USERPROFILE%`. It manages WezTerm,
   `.wslconfig`, topgrade, git, the Claude Code settings, winget packages,
@@ -9,6 +9,10 @@ Work machine setup for Windows 11 + WSL2 Ubuntu, managed by
 * **WSL**: `chezmoi` inside Ubuntu targets `~`. It manages fish, tmux,
   nvim/LazyVim, mise, git, the apt/Homebrew/mise packages, `/etc/wsl.conf`,
   Docker Engine, herdr and agent-sandbox.
+
+Both read the same Windows checkout (WSL through `/mnt/c`), and a full
+`chezmoi apply` on Windows ends by applying WSL too
+([One apply for both sides](#one-apply-for-both-sides)).
 
 Successor of the Linux/sway repo [jvik/dotfiles](https://github.com/jvik/dotfiles):
 the shell, editor and agent habits carry over, while the desktop and the
@@ -50,7 +54,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
 | `.glzr/glazewm/config.yaml`, `.glzr/glazewm/*.ps1`, `.glzr/glazewm/*.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
-| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -115,27 +119,18 @@ Without `gh`, create the empty repo on github.com and run
 commit once with `git -c commit.gpgsign=false commit ...` and fix the agent
 afterwards.
 
-`bootstrap-wsl.sh` clones `https://github.com/jvik/dotfiles-windows` without
-credentials, so it needs a **public** repo. With a private repo, bootstrap WSL
-from the local clone instead (next step).
-
-### 3. WSL (inside Ubuntu)
+### 3. WSL (inside Ubuntu, once)
 
 ```bash
-# from GitHub (default REPO):
 bash /mnt/c/Users/<you>/repos/dotfiles-windows/bootstrap-wsl.sh
-# or from the local Windows clone (must be a git repo with at least one commit):
-bash /mnt/c/Users/<you>/repos/dotfiles-windows/bootstrap-wsl.sh /mnt/c/Users/<you>/repos/dotfiles-windows
 ```
 
-`bootstrap-wsl.sh [REPO] [extra chezmoi init args]` installs `git`/`curl` if
-missing, installs chezmoi to `~/.local/bin` (get.chezmoi.io), and runs
-`chezmoi init --apply REPO`. Extra args go to `chezmoi init`, e.g.
-`bootstrap-wsl.sh <repo> --promptDefaults`.
-
-The WSL source is always a git clone on ext4 in `~/.local/share/chezmoi`. A
-local path is cloned via a `file://` URL; a source dir on `/mnt/...` is refused
-(9P is slow, NTFS brings CRLF and permission trouble).
+`bootstrap-wsl.sh [extra chezmoi init args]` installs `curl` if missing,
+installs chezmoi to `~/.local/bin` (get.chezmoi.io), and runs
+`chezmoi init --apply --source <checkout>`, where the checkout is the
+directory the script lives in. Extra args go to `chezmoi init`, e.g.
+`bootstrap-wsl.sh --promptDefaults`. There is no second clone: WSL's chezmoi
+reads the Windows checkout through `/mnt/c`.
 
 The first apply asks for your sudo password and runs, in order: prereqs
 (build tools, Homebrew), apt (fish PPA, base packages, Docker Engine), brew,
@@ -150,9 +145,36 @@ membership and the fish login shell apply.
 Then, in WSL: `gh auth login`, `bw login`, and `claude` (log in). Claude Code
 on Windows (winget) is a separate install with its own login.
 
-If WSL was bootstrapped from the local clone, `origin` is that `file://` path,
-so `chezmoi update` pulls from the Windows clone's committed state. To switch
-to GitHub later: `chezmoi git -- remote set-url origin git@github.com:jvik/dotfiles-windows.git`.
+From then on, apply from Windows only (next section).
+
+### One apply for both sides
+
+`run_after_90-wsl-apply` is the last Windows script. It runs
+`chezmoi init --apply --source <checkout>` inside the `wslDistro` distro,
+through `wsl.exe` and a login bash (`~/.profile` puts chezmoi and Homebrew on
+PATH). So `chezmoi apply`, `chezmoi update` and `chezmoi init --apply` on
+Windows bring both sides up to date, including uncommitted edits, with no git
+round trip.
+
+* `init` rather than `apply`: WSL's chezmoi config is regenerated from
+  `home/.chezmoi.yaml.tmpl` on every run (stored answers are kept), so it never
+  goes stale and its `sourceDir` always points at the checkout. A WSL setup that
+  still uses an old `~/.local/share/chezmoi` clone moves over on the next
+  Windows apply; delete the clone afterwards.
+* Like every script, it does not run for `chezmoi apply <target>`,
+  `--dry-run` or `--exclude scripts`, so scoped applies stay on Windows.
+  `chezmoi diff` on Windows shows only the Windows side; for WSL, run
+  `chezmoi diff` in WSL.
+* WSL keeps the terminal, so sudo and chezmoi's "changed since chezmoi last
+  wrote it" prompts work as in WSL. A failing WSL apply fails the Windows
+  apply. With no distro or no chezmoi in WSL (before `bootstrap-wsl.sh`) it
+  only prints a hint.
+* `chezmoi apply` inside WSL still works and uses the same checkout. Run git
+  (and `chezmoi update`) from Windows: git over `/mnt/c` is slow.
+* Reading the checkout over 9P adds about a second per WSL apply. File modes
+  come from the source names (`executable_`, `private_`), not from NTFS. The
+  working tree must stay LF (`.gitattributes`, `.editorconfig`, VS Code's
+  `files.eol`), because WSL now reads it before git normalizes anything.
 
 ---
 
@@ -203,8 +225,7 @@ There is one installer per tool, so nothing shadows anything on PATH:
 * The install scripts render their list into their own text, so after an edit
   the next `chezmoi apply` re-runs **only** the script whose list changed
   (`run_onchange_`). `just packages` runs just the scripts.
-* Edit on Windows, `chezmoi apply` there; commit and push, then
-  `chezmoi update` in WSL (pull + apply).
+* Edit on Windows and `chezmoi apply` there; that applies WSL too.
 
 Removing an entry does not uninstall anything. For brew, remove the formula
 from the list and apply with `BREW_BUNDLE_CLEANUP=1 chezmoi update` (fish
@@ -219,7 +240,7 @@ list changes, so run those commands by hand.
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
 the ssh-agent check, the keyboard Scancode Map check, the PowerToys remaps, the Obsidian vimrc copy, the
 Firefox user.js, focus follows mouse, the window borders and the GlazeWM
-startup entry.
+startup entry. The last one, `wsl-apply`, applies the WSL side.
 
 ---
 
@@ -240,8 +261,8 @@ The Windows `wsl` step finds topgrade with `wsl -d Ubuntu bash -lc "which topgra
 `wsl -d Ubuntu bash -lc 'which topgrade mise'`.
 
 Claude Code updates itself on both sides. Dotfile changes come from git:
-`chezmoi update` in WSL, `git pull` + `chezmoi apply` (or `chezmoi update`) on
-Windows.
+`chezmoi update` (or `git pull` + `chezmoi apply`) on Windows, which applies
+WSL too.
 
 ---
 
@@ -688,7 +709,12 @@ bridge.
 must find both (via `~/.profile`).
 
 **`chezmoi: warning: config file template has changed`.** Run `chezmoi init`
-(stored answers are kept) to regenerate the config.
+on Windows (stored answers are kept) to regenerate the config. The WSL config
+is regenerated by every full Windows apply.
+
+**The Windows apply skips WSL** (`[wsl-apply] ... skipping`): the `wslDistro`
+distro is missing, or WSL has no chezmoi yet (run `bootstrap-wsl.sh`). Check
+with `wsl -d Ubuntu bash -lc 'command -v chezmoi'`.
 
 **A winget install failed.** The script printed a retry command; run it.
 chezmoi re-runs the script only when the package list changes.
@@ -710,8 +736,9 @@ just data         # template data this side sees
 ```
 
 `just` comes from winget on Windows (recipes run in Windows PowerShell) and
-brew in WSL. Each side drives its own chezmoi; from WSL, run it in
-`~/.local/share/chezmoi`, not in the `/mnt/c` checkout.
+brew in WSL; run it in the checkout on either side. On Windows, `apply-all`,
+`update` and `packages` also apply WSL; the other recipes act on the side
+they run on.
 
 The shell is fish; see [home/dot_config/fish/README.md](home/dot_config/fish/README.md).
 `ab` fuzzy-finds every abbreviation, alias and function. Neovim is LazyVim
