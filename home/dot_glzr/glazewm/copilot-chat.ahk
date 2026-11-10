@@ -1,0 +1,151 @@
+; M365 Copilot Chat as a floating drop-down, toggled with Alt+Space. That is
+; the physical Win+Space key, since the Scancode Map swaps Left Alt and Left
+; Win. Pressing it:
+;
+; - with no Copilot window: opens one (and shows it once it has loaded);
+; - with the window hidden or behind others: shows it centred on the monitor
+;   under the mouse, always on top, and focuses it;
+; - with the window focused: hides it again.
+;
+; The window is M365 Copilot Chat (work account, so work data stays protected)
+; in an Edge app window (--app: no tabs or address bar). GlazeWM ignores it
+; (window_rules in config.yaml), so it never tiles and, like Bitwarden, shows
+; up on whichever workspace you are on. COPILOT_TITLE must match the
+; window_title of that rule.
+;
+; The hotkey takes Alt+Space from the window menu (and from PowerToys Run or
+; the Copilot app, if either uses it). Win+Alt+Space (Command Palette, mod+d)
+; is a different hotkey and still works.
+;
+; Included by helpers.ahk; not meant to run on its own.
+
+COPILOT_URL := "https://m365.cloud.microsoft/chat"
+; Edge browser windows are titled "<page> - <profile> - Microsoft Edge", an
+; app window only "<page>". No "-" in the title therefore rules out browser
+; windows, including one with a Copilot tab open.
+COPILOT_TITLE := "^[^-]*Copilot[^-]*$"
+EDGE_WINDOWS := "ahk_exe msedge.exe ahk_class Chrome_WidgetWin_1"
+CHAT_W := 800  ; at 100% scaling
+CHAT_H := 900
+LAUNCH_TIMEOUT_MS := 20000
+SW_SHOWMINNOACTIVE := 7
+
+copilotHwnd := 0  ; found once, so a conversation title change cannot lose it
+
+<!Space::ToggleCopilotChat()
+
+ToggleCopilotChat() {
+    DetectHiddenWindows true
+    hwnd := FindCopilotChat()
+    if !hwnd
+        LaunchCopilotChat()
+    else if WinActive(hwnd)
+        WinHide hwnd
+    else
+        ShowCopilotChat(hwnd)
+}
+
+FindCopilotChat() {
+    global copilotHwnd
+    if copilotHwnd && WinExist("ahk_id " copilotHwnd " " EDGE_WINDOWS)
+        return copilotHwnd
+    copilotHwnd := 0
+    for hwnd in WinGetList(EDGE_WINDOWS) {
+        try {
+            if RegExMatch(WinGetTitle(hwnd), COPILOT_TITLE) {
+                copilotHwnd := hwnd
+                break
+            }
+        }
+    }
+    return copilotHwnd
+}
+
+; Opens the app window and takes the first new Edge window that is not a
+; browser window (Edge may restore its browser windows when it starts). It is
+; shown once its title matches COPILOT_TITLE, i.e. once GlazeWM has let go of
+; it; on a sign-in page that never happens, so it is shown on the timeout.
+LaunchCopilotChat() {
+    global copilotHwnd
+    existing := Map()
+    for hwnd in WinGetList(EDGE_WINDOWS)
+        existing[hwnd] := true
+
+    Run "msedge.exe --app=" COPILOT_URL
+    deadline := A_TickCount + LAUNCH_TIMEOUT_MS
+    while (A_TickCount < deadline) {
+        Sleep 250
+        if !copilotHwnd {
+            for hwnd in WinGetList(EDGE_WINDOWS) {
+                if !existing.Has(hwnd) && IsEdgeAppWindow(hwnd) {
+                    copilotHwnd := hwnd
+                    break
+                }
+            }
+            continue
+        }
+        try {
+            if RegExMatch(WinGetTitle(copilotHwnd), COPILOT_TITLE) {
+                ; Give GlazeWM's ignore rule a moment, or it re-tiles the
+                ; window after it is placed.
+                Sleep 300
+                break
+            }
+        } catch {
+            return  ; closed while loading
+        }
+    }
+    if copilotHwnd && WinExist(copilotHwnd)
+        ShowCopilotChat(copilotHwnd)
+}
+
+IsEdgeAppWindow(hwnd) {
+    try {
+        if !DllCall("IsWindowVisible", "Ptr", hwnd)
+            return false
+        title := WinGetTitle(hwnd)
+        return title != "" && !RegExMatch(title, "Edge$")
+    }
+    return false
+}
+
+ShowCopilotChat(hwnd) {
+    monitor := MonitorUnderMouse()
+    if (WinGetMinMax(hwnd) = -1)
+        WinRestore hwnd
+    CenterOnMonitor(hwnd, monitor)
+    WinShow hwnd
+    WinSetAlwaysOnTop 1, hwnd
+    WinActivate hwnd
+}
+
+; Focus follows the mouse, so this is the monitor you are working on.
+MonitorUnderMouse() {
+    CoordMode "Mouse", "Screen"
+    MouseGetPos &x, &y
+    loop MonitorGetCount() {
+        MonitorGet A_Index, &l, &t, &r, &b
+        if (x >= l && x < r && y >= t && y < b)
+            return A_Index
+    }
+    return MonitorGetPrimary()
+}
+
+CenterOnMonitor(hwnd, monitor) {
+    scale := DllCall("GetDpiForWindow", "Ptr", hwnd, "UInt") / 96
+    MonitorGetWorkArea monitor, &l, &t, &r, &b
+    w := Min(Round(CHAT_W * scale), r - l)
+    h := Min(Round(CHAT_H * scale), b - t)
+    WinMove l + (r - l - w) // 2, t + (b - t - h) // 2, w, h, hwnd
+}
+
+; A hidden window has no taskbar button, so leaving it hidden when the helpers
+; exit (GlazeWM quits, or a config reload restarts them) would strand it. Hand
+; it back minimized instead.
+UnhideCopilotChat(*) {
+    DetectHiddenWindows true
+    hwnd := FindCopilotChat()
+    if hwnd && !DllCall("IsWindowVisible", "Ptr", hwnd)
+        DllCall("ShowWindow", "Ptr", hwnd, "Int", SW_SHOWMINNOACTIVE)
+}
+OnExit UnhideCopilotChat

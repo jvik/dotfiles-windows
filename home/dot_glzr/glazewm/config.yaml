@@ -21,6 +21,9 @@ general:
     - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/pin-laptop-workspace.ps1'
     # A restart puts windows back on their workspaces (see the script).
     - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1'
+    # A new app opens on the workspace it was started from, even after a
+    # workspace switch while it loads (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/open-on-launch-workspace.ps1'
     # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
     # shows GlazeWM's workspaces and reserves screen space for itself.
     - 'shell-exec zebar'
@@ -147,6 +150,14 @@ window_rules:
       - window_process: { equals: 'firefox' }
         window_class: { equals: 'MozillaDialogClass' }
         window_title: { regex: '^Extension: \(Bitwarden Password Manager\)' }
+
+      # Copilot Chat, toggled with Alt+Space (physical Win+Space) by
+      # copilot-chat.ahk: an Edge app window, floating and sticky the same
+      # way. Browser windows have " - " in the title, the app window does not.
+      # The regex must match COPILOT_TITLE in copilot-chat.ahk.
+      - window_process: { equals: 'msedge' }
+        window_class: { equals: 'Chrome_WidgetWin_1' }
+        window_title: { regex: '^[^-]*Copilot[^-]*$' }
 
   # Home workspace of Teams and Slack. summon-app.ps1 (lwin+shift+t/s) fetches
   # them to the focused workspace and sends them back here; keep its

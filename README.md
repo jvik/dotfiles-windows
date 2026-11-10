@@ -579,6 +579,14 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
 * Greenshot's dialogs ("Save image?", Save As) are owned by its editor window,
   which GlazeWM's window rules do not reach, so `greenshot-dialogs-on-top.ahk`
   keeps them always on top.
+* `Alt+Space` (the physical Win+Space) toggles M365 Copilot Chat as a floating
+  drop-down (`copilot-chat.ahk`). It is an Edge app window
+  (`msedge --app=https://m365.cloud.microsoft/chat`, work account) that a
+  window rule ignores, so it floats on every workspace. The hotkey opens it if
+  needed, shows it centred on the monitor under the mouse, always on top, and
+  hides it again when pressed while it has focus. It takes over Alt+Space from
+  the window menu. If the window ever tiles instead, its title does not match
+  `COPILOT_TITLE` (keep it in sync with the rule in `config.yaml`).
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more
@@ -590,6 +598,15 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   `%LOCALAPPDATA%\glazewm-window-workspaces.json` and moves the windows back
   when GlazeWM starts. Only the workspace comes back, not the split layout.
   Errors go to `%TEMP%\glazewm-remember-workspaces.log`.
+* An app opens on the workspace it was started from, even if you switch
+  workspace while it loads (GlazeWM itself uses whichever workspace is focused
+  when the window appears). `open-on-launch-workspace.ps1` (a GlazeWM startup
+  command) records the focused workspace over time and moves a new window to
+  the one that was focused when its process started. It only acts on processes
+  started in the last 20 s, so a new window of an app that was already running
+  (a second Firefox window) still opens where you are, and it leaves windows
+  that a window rule placed (Teams, Slack), elevated apps and UWP apps alone.
+  Errors go to `%TEMP%\glazewm-open-on-launch-workspace.log`.
 
 ### Zebar status bar
 
