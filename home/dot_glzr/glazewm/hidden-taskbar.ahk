@@ -69,11 +69,19 @@ SetTaskbarVisible(visible) {
     }
 }
 
+; Explorer only moves the taskbar back into place when auto-hide changes while
+; the window is visible, so show it before turning auto-hide off and turn
+; auto-hide on before hiding it.
 ToggleTaskbar() {
     global taskbarShown
     taskbarShown := !taskbarShown
-    SetAutoHide !taskbarShown
-    SetTaskbarVisible taskbarShown
+    if taskbarShown {
+        SetTaskbarVisible true
+        SetAutoHide false
+    } else {
+        SetAutoHide true
+        SetTaskbarVisible false
+    }
 }
 
 KeepTaskbarHidden() {
