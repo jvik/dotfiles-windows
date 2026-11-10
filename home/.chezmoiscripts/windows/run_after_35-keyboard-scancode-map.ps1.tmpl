@@ -1,0 +1,99 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_35-keyboard-scancode-map (runs on every apply; read-only)
+#
+# The sway keyboard layout, xkb_options "caps:swapescape,altwin:swap_lalt_lwin":
+# Caps Lock <-> Esc and Left Alt <-> Left Win. Windows does this through the
+# "Scancode Map" value in HKLM\SYSTEM\CurrentControlSet\Control\Keyboard Layout,
+# which the keyboard driver applies before any program sees a key. That is why
+# it is not a PowerToys remap: PowerToys swaps keys in a keyboard hook, so
+# other hooks (GlazeWM's keybindings) see a mix of real and injected keys and
+# do not reliably see the swapped Win key.
+#
+# The value is machine-wide (all users, all keyboards), needs admin to write
+# and takes effect after a restart. This script only CHECKS. It never
+# elevates; it prints the exact command to run from an elevated PowerShell
+# when the value differs. It always exits 0.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+$layoutKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout'
+$valueName = 'Scancode Map'
+
+# Set-1 scan codes as the two little-endian bytes of the value format.
+$scanCode = @{
+    Esc      = @(0x01, 0x00)
+    CapsLock = @(0x3A, 0x00)
+    LeftAlt  = @(0x38, 0x00)
+    LeftWin  = @(0x5B, 0xE0)
+}
+
+# Each entry: the key pressed (From) produces the key To.
+$swaps = @(
+    @{ From = 'CapsLock'; To = 'Esc' },
+    @{ From = 'Esc'; To = 'CapsLock' },
+    @{ From = 'LeftAlt'; To = 'LeftWin' },
+    @{ From = 'LeftWin'; To = 'LeftAlt' }
+)
+
+# Value layout: 8 header bytes (zero), DWORD entry count including the
+# terminator, one DWORD per entry (To scan code, then From scan code), and a
+# zero DWORD terminator.
+function Get-DesiredScancodeMap {
+    $bytes = New-Object System.Collections.Generic.List[byte]
+    $bytes.AddRange([byte[]](0, 0, 0, 0, 0, 0, 0, 0))
+    $bytes.AddRange([BitConverter]::GetBytes([uint32]($swaps.Count + 1)))
+    foreach ($swap in $swaps) {
+        $bytes.AddRange([byte[]]$scanCode[$swap.To])
+        $bytes.AddRange([byte[]]$scanCode[$swap.From])
+    }
+    $bytes.AddRange([byte[]](0, 0, 0, 0))
+    return ,$bytes.ToArray()
+}
+
+function Format-Bytes([byte[]]$Bytes) {
+    return (($Bytes | ForEach-Object { '0x{0:X2}' -f $_ }) -join ',')
+}
+
+$desired = Get-DesiredScancodeMap
+$current = (Get-ItemProperty -LiteralPath $layoutKey -Name $valueName -ErrorAction SilentlyContinue).$valueName
+
+$isSet = ($null -ne $current) -and ((Format-Bytes $current) -eq (Format-Bytes $desired))
+if ($isSet) {
+    Write-Host '[keyboard] Scancode Map (Caps<->Esc, LAlt<->LWin) is set: OK.'
+    exit 0
+}
+
+# The fix is printed as short lines, one value entry per line, because a
+# single long line gets broken when copied out of a narrow terminal (and
+# Set-ItemProperty then prompts for the missing -Value). Every byte line ends
+# in a comma, so PowerShell reads the list as one statement however it is
+# pasted.
+function Get-FixLines([byte[]]$Bytes) {
+    $headerLength = 12   # 8 zero bytes + the entry count
+    $lines = @('$scancodeMap = [byte[]](')
+    $lines += '    ' + (Format-Bytes $Bytes[0..($headerLength - 1)]) + ','
+    for ($i = $headerLength; $i -lt $Bytes.Length; $i += 4) {
+        $isLast = ($i + 4) -ge $Bytes.Length
+        $separator = ','
+        if ($isLast) { $separator = ')' }
+        $lines += '    ' + (Format-Bytes $Bytes[$i..($i + 3)]) + $separator
+    }
+    $lines += "`$key = '$layoutKey'"
+    $lines += "Set-ItemProperty -LiteralPath `$key -Name '$valueName' -Type Binary -Value `$scancodeMap"
+    return $lines
+}
+
+if ($null -eq $current) {
+    Write-Warning '[keyboard] Caps Lock <-> Esc and Left Alt <-> Left Win are not mapped (no Scancode Map).'
+} else {
+    Write-Warning ("[keyboard] Scancode Map has other mappings and will be replaced. Current value: {0}" -f (Format-Bytes $current))
+}
+Write-Warning '[keyboard] Paste these lines into an ELEVATED PowerShell, then restart Windows.'
+Write-Warning '[keyboard] (Start-Process powershell.exe -Verb RunAs opens one.)'
+Write-Host ''
+foreach ($line in (Get-FixLines $desired)) { Write-Host "    $line" }
+Write-Host ''
+exit 0
+{{ end -}}

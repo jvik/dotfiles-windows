@@ -22,8 +22,14 @@ dnsTunneling=true
 autoProxy=true
 # Let Windows Firewall / Hyper-V firewall rules (Intune) apply to WSL traffic.
 firewall=true
-# Optional: cap the VM memory (default is 50% of host RAM).
-# memory=16GB
+# Resource caps, sized for a 32 GB / 14-thread host. The defaults (50% of RAM,
+# all CPUs) let a busy WSL (builds, containers, page cache) starve Windows and
+# make the desktop sluggish; these leave Windows a comfortable share.
+memory=12GB
+processors=10
+# Swap inside the VM (default 25% of RAM). Lets WSL survive short spikes above
+# the memory cap instead of OOM-killing, without growing the swap file further.
+swap=8GB
 
 # --- NAT fallback ------------------------------------------------------------
 # Some corporate VPN clients (Zscaler, GlobalProtect, Cisco Secure Client)

@@ -1,0 +1,325 @@
+# GlazeWM config (features.glazewm), ported from the sway config in
+# jvik/dotfiles. Schema: GlazeWM v3 sample-config.yaml.
+#
+# mod is `lwin`: a Scancode Map swaps Left Alt and Left Win (as sway's
+# altwin:swap_lalt_lwin did, run_after_35-keyboard-scancode-map), so lwin here
+# is the physical Left Alt key.
+#
+# Not bindable: anything with lwin+l. Windows locks the screen on Win+L before
+# any program sees it, so "right" is the arrow key only (mod+l locks, which is
+# close to sway's mod+Ctrl+l).
+#
+# Left to other tools on purpose, so they keep working while GlazeWM is
+# paused: mod+Enter (WezTerm), mod+Shift+f (Firefox), mod+Shift+q (close) and
+# mod+d (Command Palette) are PowerToys remaps (.chezmoidata/powertoys.yaml),
+# and focus follows mouse is the Windows setting from
+# run_after_60-focus-follows-mouse (it has the 150 ms delay GlazeWM lacks).
+
+general:
+  startup_commands:
+    # Keeps workspace 10 on the laptop's built-in display (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/pin-laptop-workspace.ps1'
+    # A restart puts windows back on their workspaces (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1'
+    # A new app opens on the workspace it was started from, even after a
+    # workspace switch while it loads (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/open-on-launch-workspace.ps1'
+    # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
+    # shows GlazeWM's workspaces and reserves screen space for itself.
+    - 'shell-exec zebar'
+    # AutoHotkey helpers, one process (see helpers.ahk): tapping mod alone does
+    # not open the Start menu, and Bitwarden stays above other windows (see
+    # window_rules). It exits on its own after GlazeWM.
+    - 'shell-exec %userprofile%/.glzr/glazewm/helpers.ahk'
+  shutdown_commands:
+    - 'shell-exec taskkill /IM zebar.exe /F'
+  # Reload (lwin+ctrl+shift+c) instead of restarting GlazeWM: a restart loses
+  # which workspace each window was on, a reload keeps it. This re-runs the
+  # AHK helpers so edits to them apply too (#SingleInstance Force replaces
+  # the running copy).
+  config_reload_commands:
+    - 'shell-exec %userprofile%/.glzr/glazewm/helpers.ahk'
+
+  # Windows' own active window tracking does this (see header).
+  focus_follows_cursor: false
+
+  # sway: workspace_auto_back_and_forth no
+  toggle_workspace_on_refocus: false
+
+  cursor_jump:
+    enabled: true
+    trigger: 'monitor_focus'
+
+  hide_method: 'cloak'
+  show_all_in_taskbar: false
+
+gaps:
+  scale_with_dpi: true
+  # sway: gaps inner 8, gaps outer 4
+  inner_gap: '8px'
+  outer_gap:
+    top: '4px'
+    right: '4px'
+    bottom: '4px'
+    left: '4px'
+
+# Colors from sway's gruvbox theme (client.focused / client.unfocused).
+window_effects:
+  focused_window:
+    border:
+      enabled: true
+      color: '#fabd2f'
+    hide_title_bar:
+      enabled: false
+    corner_style:
+      enabled: false
+      style: 'square'
+    transparency:
+      enabled: false
+      opacity: '95%'
+
+  other_windows:
+    border:
+      enabled: true
+      color: '#504945'
+    hide_title_bar:
+      enabled: false
+    corner_style:
+      enabled: false
+      style: 'square'
+    # Set enabled: true (e.g. opacity '90%') to also dim unfocused windows.
+    transparency:
+      enabled: false
+      opacity: '90%'
+
+window_behavior:
+  initial_state: 'tiling'
+  state_defaults:
+    floating:
+      centered: true
+      shown_on_top: false
+    fullscreen:
+      maximized: false
+      shown_on_top: false
+
+workspaces:
+  - name: '1'
+  - name: '2'
+  - name: '3'
+  - name: '4'
+  - name: '5'
+  - name: '6'
+  - name: '7'
+  - name: '8'
+  - name: '9'
+  # pin-laptop-workspace.ps1 creates it on the built-in display when an
+  # external monitor is connected; keep_alive stops GlazeWM from destroying it
+  # again while it is empty and hidden.
+  - name: '10'
+    keep_alive: true
+
+window_rules:
+  - commands: ['ignore']
+    match:
+      # Picture-in-picture windows of browsers (sway: floating + sticky).
+      - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
+        window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }
+
+      # From GlazeWM's sample config: Zebar's bars, PowerToys and Office
+      # pop-ups.
+      - window_process: { equals: 'zebar' }
+      - window_process: { equals: 'PowerToys' }
+        window_class: { regex: 'HwndWrapper\[PowerToys\.PowerAccent.*?\]' }
+      - window_title: { equals: 'Command Palette' }
+        window_class: { equals: 'WinUIDesktopWin32WindowClass' }
+      - window_process: { equals: 'PowerToys' }
+        window_title: { regex: '.*? - Peek' }
+      - window_process: { equals: 'EXCEL' }
+        window_class: { not_regex: 'XLMAIN' }
+      - window_process: { equals: 'WINWORD' }
+        window_class: { not_regex: 'OpusApp' }
+      - window_process: { equals: 'POWERPNT' }
+        window_class: { not_regex: 'PPTFrameClass' }
+
+      # Bitwarden: floating + sticky. GlazeWM has no sticky, but an ignored
+      # window is never hidden on a workspace switch, so it follows you.
+      # bitwarden-on-top.ahk keeps it above the tiled windows.
+      - window_process: { equals: 'Bitwarden' }
+      # The Firefox extension's pop-out window. The title regex must match
+      # FIREFOX_POPOUT_TITLE in bitwarden-on-top.ahk.
+      - window_process: { equals: 'firefox' }
+        window_class: { equals: 'MozillaDialogClass' }
+        window_title: { regex: '^Extension: \(Bitwarden Password Manager\)' }
+
+      # Copilot Chat, toggled with Alt+Space (physical Win+Space) by
+      # copilot-chat.ahk: an Edge app window, floating and sticky the same
+      # way. Browser windows have " - " in the title, the app window does not.
+      # The regex must match COPILOT_TITLE in copilot-chat.ahk.
+      - window_process: { equals: 'msedge' }
+        window_class: { equals: 'Chrome_WidgetWin_1' }
+        window_title: { regex: '^[^-]*Copilot[^-]*$' }
+
+  # Home workspace of Teams and Slack. summon-app.ps1 (lwin+shift+t/s) fetches
+  # them to the focused workspace and sends them back here; keep its
+  # -HomeWorkspace default in sync. New Teams is ms-teams, classic Teams is
+  # Teams. Only when the window first appears: both apps change their title on
+  # every new message, and a rule that also ran on title_change would pull a
+  # fetched window back to 4.
+  - commands: ['move --workspace 4']
+    on: ['manage']
+    run_once: true
+    match:
+      - window_process: { regex: '^(ms-teams|Teams|Slack)$' }
+
+  # sway: for_window [app_id="...Calculator"] floating enable.
+  - commands: ['set-floating --centered']
+    match:
+      - window_process: { equals: 'CalculatorApp' }
+
+  # Dialogs that otherwise sink behind the tiled windows: float them, kept on
+  # top. Unlike Bitwarden they stay on their workspace.
+  - commands: ['set-floating --centered --shown-on-top']
+    match:
+      # Explorer's "Extract Compressed (Zipped) Folders" wizard (title is
+      # localized, so match the class) and its copy-progress window.
+      - window_process: { equals: 'explorer' }
+        window_class: { regex: '^(NativeHWNDHost|OperationStatusWindow)$' }
+      # Properties dialogs from any program (Explorer, Task Manager, ...).
+      # Norwegian "Egenskaper for X", English "X Properties".
+      - window_class: { equals: '#32770' }
+        window_title: { regex: '^Egenskaper for |Properties$' }
+      # Firefox's Library window (Downloads, History, Bookmarks). Browser
+      # windows end in " — Mozilla Firefox", so an exact title is safe.
+      - window_process: { equals: 'firefox' }
+        window_class: { equals: 'MozillaWindowClass' }
+        window_title: { equals: 'Library' }
+      # Admin By Request: its elevation prompts and the session countdown
+      # window (titled with the time left, e.g. "00:14:13").
+      - window_process: { equals: 'AdminByRequest' }
+      # Installer wizards, e.g. "Horizon Client Installer" (the process name
+      # carries the version, so match the title). Browser and editor titles
+      # end in the program name, so this does not catch tabs about setup.
+      - window_title: { regex: '(Installer|Setup|[Ii]nstallasjon(sprogram)?)$' }
+      - window_process: { equals: 'msiexec' }
+
+binding_modes:
+  # sway: mode "resize"
+  - name: 'resize'
+    keybindings:
+      - commands: ['resize --width -2%']
+        bindings: ['h', 'left']
+      - commands: ['resize --width +2%']
+        bindings: ['l', 'right']
+      - commands: ['resize --height -2%']
+        bindings: ['k', 'up']
+      - commands: ['resize --height +2%']
+        bindings: ['j', 'down']
+      - commands: ['wm-disable-binding-mode --name resize']
+        bindings: ['escape', 'enter']
+
+keybindings:
+  # Focus (no lwin+l, see header).
+  - commands: ['focus --direction left']
+    bindings: ['lwin+h', 'lwin+left']
+  - commands: ['focus --direction down']
+    bindings: ['lwin+j', 'lwin+down']
+  - commands: ['focus --direction up']
+    bindings: ['lwin+k', 'lwin+up']
+  - commands: ['focus --direction right']
+    bindings: ['lwin+right']
+
+  # Move window.
+  - commands: ['move --direction left']
+    bindings: ['lwin+shift+h', 'lwin+shift+left']
+  - commands: ['move --direction down']
+    bindings: ['lwin+shift+j', 'lwin+shift+down']
+  - commands: ['move --direction up']
+    bindings: ['lwin+shift+k', 'lwin+shift+up']
+  - commands: ['move --direction right']
+    bindings: ['lwin+shift+right']
+
+  # Layout. sway's tabbed/stacking layouts, sticky and scratchpad have no
+  # GlazeWM equivalent (window_rules fakes sticky with 'ignore').
+  - commands: ['toggle-tiling-direction']
+    bindings: ['lwin+e']
+  - commands: ['toggle-fullscreen']
+    bindings: ['lwin+f']
+  - commands: ['toggle-floating --centered']
+    bindings: ['lwin+shift+space']
+  - commands: ['wm-cycle-focus']
+    bindings: ['lwin+space']
+  - commands: ['wm-enable-binding-mode --name resize']
+    bindings: ['lwin+r']
+
+  # Teams and Slack as scratchpads: fetch the app here, press again to send it
+  # home to workspace 4 (see summon-app.ps1).
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames ms-teams,Teams -LaunchUri msteams:']
+    bindings: ['lwin+shift+t']
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Slack -LaunchUri slack://open']
+    bindings: ['lwin+shift+s']
+
+  # Workspaces. sway moved the window without following it.
+  - commands: ['focus --recent-workspace']
+    bindings: ['lwin+tab']
+  - commands: ['focus --workspace 1']
+    bindings: ['lwin+1']
+  - commands: ['focus --workspace 2']
+    bindings: ['lwin+2']
+  - commands: ['focus --workspace 3']
+    bindings: ['lwin+3']
+  - commands: ['focus --workspace 4']
+    bindings: ['lwin+4']
+  - commands: ['focus --workspace 5']
+    bindings: ['lwin+5']
+  - commands: ['focus --workspace 6']
+    bindings: ['lwin+6']
+  - commands: ['focus --workspace 7']
+    bindings: ['lwin+7']
+  - commands: ['focus --workspace 8']
+    bindings: ['lwin+8']
+  - commands: ['focus --workspace 9']
+    bindings: ['lwin+9']
+  - commands: ['focus --workspace 10']
+    bindings: ['lwin+0']
+  - commands: ['move --workspace 1']
+    bindings: ['lwin+shift+1']
+  - commands: ['move --workspace 2']
+    bindings: ['lwin+shift+2']
+  - commands: ['move --workspace 3']
+    bindings: ['lwin+shift+3']
+  - commands: ['move --workspace 4']
+    bindings: ['lwin+shift+4']
+  - commands: ['move --workspace 5']
+    bindings: ['lwin+shift+5']
+  - commands: ['move --workspace 6']
+    bindings: ['lwin+shift+6']
+  - commands: ['move --workspace 7']
+    bindings: ['lwin+shift+7']
+  - commands: ['move --workspace 8']
+    bindings: ['lwin+shift+8']
+  - commands: ['move --workspace 9']
+    bindings: ['lwin+shift+9']
+  - commands: ['move --workspace 10']
+    bindings: ['lwin+shift+0']
+
+  # Move the current workspace to another monitor.
+  - commands: ['move-workspace --direction left']
+    bindings: ['lwin+ctrl+shift+left']
+  - commands: ['move-workspace --direction right']
+    bindings: ['lwin+ctrl+shift+right']
+  - commands: ['move-workspace --direction up']
+    bindings: ['lwin+ctrl+shift+up']
+  - commands: ['move-workspace --direction down']
+    bindings: ['lwin+ctrl+shift+down']
+
+  # WM control. sway: mod+Shift+c re-placed windows after a display change,
+  # mod+Ctrl+Shift+c reloaded, mod+Shift+e exited.
+  - commands: ['wm-redraw']
+    bindings: ['lwin+shift+c']
+  - commands: ['wm-reload-config']
+    bindings: ['lwin+ctrl+shift+c']
+  - commands: ['wm-exit']
+    bindings: ['lwin+shift+e']
+  # Escape hatch: suspends tiling and every other binding until pressed again.
+  - commands: ['wm-toggle-pause']
+    bindings: ['lwin+shift+p']

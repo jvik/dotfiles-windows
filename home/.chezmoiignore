@@ -48,6 +48,12 @@ scripts/**
 !.config/git/**
 {{- end }}
 
+{{- if not (and .isWindows (dig "glazewm" false .features)) }}
+# ---- features.glazewm: GlazeWM and Zebar config (Windows) ----
+.glzr
+.glzr/**
+{{- end }}
+
 {{- if not (and .isWSL .features.agentSandbox) }}
 # ---- features.agentSandbox: herdr + agent-sandbox + new-worktree (WSL) ----
 # (hr.fish, the as* abbrs and herdr in mise/config.toml gate themselves in

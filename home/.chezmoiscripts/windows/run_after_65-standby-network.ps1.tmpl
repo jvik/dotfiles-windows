@@ -1,0 +1,70 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_65-standby-network (runs on every apply)
+#
+# Turns off network connectivity during Modern Standby (S0) on battery, so a
+# sleeping laptop in a bag does not keep waking on Wi-Fi traffic (mail sync,
+# Teams, updates) and run hot. This is the power plan setting "Networking
+# connectivity in Standby" (Disable / Enable / Managed by Windows), set only
+# for battery (DC); on AC the laptop keeps syncing while it sleeps.
+#
+# The setting lives in the active power plan. powercfg can usually change it
+# without admin; if it cannot, or a group policy overrides it, the script
+# prints what to do instead. On a machine without Modern Standby the setting
+# is harmless. It never fails the apply.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+$noSubgroup = 'SUB_NONE'
+$standbyNetworkSetting = 'F15576E8-98B7-4186-B944-EAFA664402D9'
+$disabled = 0
+$valueNames = @{ 0 = 'Disable'; 1 = 'Enable'; 2 = 'Managed by Windows' }
+$policyKey = "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\$standbyNetworkSetting"
+
+function Write-Info([string]$Message) { Write-Host "[standby] $Message" }
+
+# powercfg's labels are localized, but its two "current index" lines are the
+# only lines with an 8-digit hex value: AC first, then DC.
+function Get-DcValue {
+    $output = & powercfg.exe /qh SCHEME_CURRENT $noSubgroup $standbyNetworkSetting 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $indexes = @($output | Select-String -Pattern '0x([0-9a-fA-F]{8})\s*$' | ForEach-Object {
+        [Convert]::ToInt32($_.Matches[0].Groups[1].Value, 16)
+    })
+    if ($indexes.Count -ne 2) { return $null }
+    return $indexes[1]
+}
+
+$policy = Get-ItemProperty -LiteralPath $policyKey -Name 'DCSettingIndex' -ErrorAction SilentlyContinue
+if (($null -ne $policy) -and ($policy.DCSettingIndex -ne $disabled)) {
+    Write-Warning ("[standby] A group policy sets network in standby on battery to '{0}'; it overrides the power plan." -f $valueNames[[int]$policy.DCSettingIndex])
+    exit 0
+}
+
+$current = Get-DcValue
+if ($null -eq $current) {
+    Write-Warning '[standby] Could not read "Networking connectivity in Standby" from the active power plan; skipped.'
+    exit 0
+}
+if ($current -eq $disabled) {
+    Write-Info 'Network in standby on battery is off: OK.'
+    exit 0
+}
+
+& powercfg.exe /setdcvalueindex SCHEME_CURRENT $noSubgroup $standbyNetworkSetting $disabled 2>$null
+$setExitCode = $LASTEXITCODE
+# Re-activating the plan applies the changed value now instead of at the next plan switch.
+& powercfg.exe /setactive SCHEME_CURRENT 2>$null
+if (($setExitCode -eq 0) -and ($LASTEXITCODE -eq 0) -and ((Get-DcValue) -eq $disabled)) {
+    Write-Info ("Turned off network in standby on battery (was '{0}')." -f $valueNames[$current])
+    exit 0
+}
+
+Write-Warning '[standby] Could not turn off network in standby on battery. Run this in an ELEVATED PowerShell:'
+Write-Host ''
+Write-Host "    powercfg /setdcvalueindex SCHEME_CURRENT $noSubgroup $standbyNetworkSetting $disabled"
+Write-Host '    powercfg /setactive SCHEME_CURRENT'
+Write-Host ''
+exit 0
+{{ end -}}

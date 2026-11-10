@@ -26,21 +26,16 @@
 powertoys:
   keyboardManager:
     remapKeys:
-      # Carried over from sway: xkb_options "caps:swapescape,altwin:swap_lalt_lwin"
-      inProcess:
-        - originalKeys: "20"   # Caps Lock
-          newRemapKeys: "27"   # -> Esc
-        - originalKeys: "27"   # Esc
-          newRemapKeys: "20"   # -> Caps Lock
-        - originalKeys: "164"  # Alt (Left)
-          newRemapKeys: "91"   # -> Win (Left)
-        - originalKeys: "91"   # Win (Left)
-          newRemapKeys: "164"  # -> Alt (Left)
+      # Empty on purpose: the sway swaps (Caps Lock <-> Esc, Left Alt <-> Left
+      # Win) are a Scancode Map (run_after_35-keyboard-scancode-map), so every
+      # program, GlazeWM included, sees the swapped keys. Remapping them here
+      # as well would swap them back.
+      inProcess: []
     remapKeysToText:
       inProcess: []
     remapShortcuts:
-      # Sway-style bindings with mod = Win. Shortcut remaps see the keys after
-      # the key remaps above, so this Win is the physical Left Alt key.
+      # Sway-style bindings with mod = Win, which is the physical Left Alt key
+      # because of the Scancode Map.
       global:
         - originalKeys: "91;16;81"   # Win + Shift + Q
           newRemapKeys: "164;115"    # -> Alt + F4 (close window)
@@ -50,6 +45,15 @@ powertoys:
           newRemapKeys: ""
           operationType: 1           # run program
           runProgramFilePath: 'C:\Program Files\Mozilla Firefox\firefox.exe'
+          runProgramArgs: ""
+          runProgramStartInDir: ""
+          runProgramElevationLevel: 0        # same as PowerToys
+          runProgramAlreadyRunningAction: 1  # start another, do not just focus
+          runProgramStartWindowType: 0       # normal window
+        - originalKeys: "91;13"      # Win + Enter -> new WezTerm window
+          newRemapKeys: ""
+          operationType: 1           # run program
+          runProgramFilePath: 'C:\Program Files\WezTerm\wezterm-gui.exe'
           runProgramArgs: ""
           runProgramStartInDir: ""
           runProgramElevationLevel: 0        # same as PowerToys

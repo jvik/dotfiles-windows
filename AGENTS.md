@@ -5,10 +5,10 @@ Practical guidance for AI agents and other automated contributors in this reposi
 ## Purpose
 
 This repository is a **chezmoi-based dotfiles setup** for a Windows 11 + WSL2
-Ubuntu work machine. The same source is applied **twice**: by `chezmoi.exe` on
-Windows (target `%USERPROFILE%`, source = this checkout) and by `chezmoi`
-inside WSL (target `~`, source = a git clone in `~/.local/share/chezmoi` on
-ext4). The goal is safe, minimal, and idempotent changes.
+Ubuntu work machine. The same checkout is applied **twice**: by `chezmoi.exe`
+on Windows (target `%USERPROFILE%`) and by `chezmoi` inside WSL (target `~`,
+source = this checkout through `/mnt/c`). A full Windows apply runs the WSL
+apply as its last script. The goal is safe, minimal, and idempotent changes.
 
 ## Core principles
 
@@ -72,6 +72,10 @@ ext4). The goal is safe, minimal, and idempotent changes.
   the source of truth: `run_after_40-powertoys-keyboard` replaces only the four
   remap sections of the active profile file and keeps other fields. PowerToys'
   `settings.json` files are runner-owned: read them, never write them.
+- Single-key swaps (Caps Lock <-> Esc, Left Alt <-> Left Win) are NOT
+  PowerToys remaps but the `Scancode Map` checked by
+  `run_after_35-keyboard-scancode-map`, so other keyboard hooks (GlazeWM) see
+  the swapped keys. Keep `remapKeys.inProcess` free of them, or they swap back.
 
 ### Firefox
 
@@ -108,7 +112,8 @@ Never install the same tool from two places (PATH shadowing).
   script text (or embed `# hash: {{ include "<path relative to home/>" | sha256sum }}`
   for a non-template input file), so chezmoi re-runs it only when the input
   changes. `run_once_` for one-time installers. `run_after_` only for cheap,
-  idempotent checks, since they run on every apply.
+  idempotent checks, since they run on every apply. The one exception is
+  `run_after_90-wsl-apply`, which is the WSL apply itself; keep it last.
 - A failing package install logs and continues where possible (winget); a
   missing prerequisite fails loudly.
 - **PowerShell (`.ps1`, `bootstrap.ps1`)**: pure ASCII (Windows PowerShell 5.1
@@ -145,10 +150,16 @@ Never install the same tool from two places (PATH shadowing).
   <source-path>` does that), or apply the target path directly.
 - Prefer applying a **scoped target path** over a bare `chezmoi apply`: a bare
   apply re-applies every managed file and runs scripts, which can revert
-  unrelated in-progress edits.
-- Each side drives its own chezmoi. WSL reads its ext4 clone, never a checkout
-  on `/mnt/c` (the config template refuses that). Changes made on Windows reach
-  WSL through git (commit/push, then `chezmoi update` in WSL).
+  unrelated in-progress edits. On Windows a bare apply (also `chezmoi update`,
+  `just apply-all`/`update`/`packages`) additionally applies **WSL** through
+  `run_after_90-wsl-apply`; scoped applies and `--dry-run` do not.
+- Both sides read this checkout; there is no WSL clone. `run_after_90-wsl-apply`
+  runs `chezmoi init --apply --source <checkout>` in WSL, so the WSL config is
+  regenerated from the template on every Windows apply. Keep the working tree
+  LF (no CR bytes): WSL reads it as is, before git normalizes anything.
+- Commands that `run_after_90-wsl-apply` passes to `wsl.exe` must not contain
+  double quotes (Windows PowerShell 5.1 drops them when calling native
+  programs).
 
 ### modify_ files (Claude settings)
 
@@ -250,7 +261,7 @@ Get-Content <file> -Raw | chezmoi execute-template @flags   # render one templat
 - WSL config: hand-write `cfg-wsl.yaml` with `isWSL: true`, `isWindows: false`,
   `isLinux: true` and every data key (`name`, `email`, `personalEmail`,
   `signingKey`, `githubOrg`, `wslDistro`, `windowsUser`, `obsidianVault`,
-  `features.docker/agentSandbox/powertoys`). Also test a variant with all
+  `features.docker/agentSandbox/powertoys/glazewm`). Also test a variant with all
   features off and an empty `signingKey`.
 - Allowed: `execute-template`, `cat`, `managed`, `ignored`, `data`, `diff`,
   `doctor`, `apply --dry-run`. Never `apply` without `--dry-run`, never `init`

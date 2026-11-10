@@ -1,10 +1,11 @@
-# Repo helper recipes. Works from both sides:
-#   WSL:     run in ~/.local/share/chezmoi (the WSL source clone); uses bash
-#   Windows: run in the repo root (chezmoi's persisted sourceDir); uses
-#            Windows PowerShell 5.1, so recipe lines must stay 5.1-compatible
-# Each side drives its own chezmoi, so recipes act on that side's home only.
-# (Running just in /mnt/c/... from WSL talks to the WSL chezmoi, whose source
-# is the ext4 clone, not this checkout.)
+# Repo helper recipes. Works from both sides, in the repo root (both chezmoi
+# configs persist it as sourceDir):
+#   Windows: C:\...\dotfiles-windows; uses Windows PowerShell 5.1, so recipe
+#            lines must stay 5.1-compatible
+#   WSL:     /mnt/c/.../dotfiles-windows; uses bash
+# A full apply on Windows (apply-all, update, packages) also applies WSL
+# (run_after_90-wsl-apply); diff, check and `apply <source>` act on the
+# current side only.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 # Deprecated in just >= 1.56 in favour of `[windows]` on `set shell`, but kept

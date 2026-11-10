@@ -1,0 +1,82 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_90-wsl-apply (runs on every full apply, after the other scripts)
+#
+# Applies this same checkout inside WSL ({{ .wslDistro }}), so one `chezmoi apply`
+# or `chezmoi update` on Windows brings both sides up to date. WSL's chezmoi
+# reads the checkout through /mnt/c: uncommitted edits reach WSL too, and there
+# is no second clone to push to and pull from.
+#
+# It runs `chezmoi init --apply` rather than `apply`, so WSL's chezmoi config is
+# regenerated from home/.chezmoi.yaml.tmpl on every run (stored answers are
+# kept; it only prompts for a new key) and its sourceDir always points at this
+# checkout. That also moves an existing WSL setup off an old ext4 clone.
+#
+# Like every script, it does not run for `chezmoi apply <target>`, --dry-run
+# or --exclude scripts. It is skipped, with a hint, while WSL is not set up
+# (no distro, or no chezmoi inside it: run bootstrap-wsl.sh). A failing WSL
+# apply fails this apply.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+$distro = {{ .wslDistro | squote }}
+# Exit code of the WSL command when chezmoi is not installed there
+# (69 = EX_UNAVAILABLE in sysexits.h).
+$exitNotSetUp = 69
+
+function Write-Info([string]$Message) { Write-Host "[wsl-apply] $Message" }
+
+# /mnt/<drive>/... form of a Windows path, for the hint only.
+function ConvertTo-WslPath([string]$WindowsPath) {
+    if ($WindowsPath -match '^([A-Za-z]):[\\/](.*)$') {
+        return '/mnt/' + $Matches[1].ToLowerInvariant() + '/' + ($Matches[2] -replace '\\', '/')
+    }
+    return $WindowsPath
+}
+
+$workingTree = $env:CHEZMOI_WORKING_TREE
+if (-not $workingTree) {
+    Write-Warning '[wsl-apply] CHEZMOI_WORKING_TREE is not set (chezmoi too old?); cannot apply the WSL side.'
+    exit 1
+}
+$bootstrapHint = 'Set it up once from a WSL terminal: bash {0}/bootstrap-wsl.sh' -f (ConvertTo-WslPath $workingTree)
+
+$wsl = Join-Path $env:SystemRoot 'System32\wsl.exe'
+if (-not (Test-Path -LiteralPath $wsl -PathType Leaf)) {
+    Write-Info 'WSL is not installed; skipping the WSL side.'
+    exit 0
+}
+
+# Without WSL_UTF8, wsl.exe prints its own output as UTF-16.
+$env:WSL_UTF8 = '1'
+$distros = @(& $wsl --list --quiet | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($distros -notcontains $distro) {
+    Write-Info "WSL distro '$distro' not found (wslDistro); skipping the WSL side."
+    exit 0
+}
+
+# bash -l reads ~/.profile, which puts ~/.local/bin (chezmoi) and Homebrew on
+# PATH. --cd takes the Windows path and translates it, so `--source .` is this
+# checkout as WSL sees it. The command must not contain double quotes: Windows
+# PowerShell 5.1 drops them when it passes arguments to a native program.
+$wslCommand = "command -v chezmoi >/dev/null || exit $exitNotSetUp; exec chezmoi init --apply --source ."
+if ($env:CHEZMOI_VERBOSE -eq '1') { $wslCommand += ' --verbose' }
+
+Write-Info "Applying this checkout in WSL ($distro)..."
+# Not piped or captured: WSL keeps the terminal, so sudo and chezmoi prompts work.
+& $wsl -d $distro --cd $workingTree --exec bash -lc $wslCommand
+$code = $LASTEXITCODE
+
+if ($code -eq $exitNotSetUp) {
+    Write-Info "chezmoi is not installed in WSL ($distro); skipping the WSL side."
+    Write-Info $bootstrapHint
+    exit 0
+}
+if ($code -ne 0) {
+    Write-Warning "[wsl-apply] chezmoi in WSL ($distro) failed with exit code $code; see its output above."
+    exit 1
+}
+Write-Info "WSL ($distro) is up to date."
+exit 0
+{{ end -}}

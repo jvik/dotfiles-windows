@@ -235,19 +235,18 @@ Write-Host @"
   2. .wslconfig changed? Restart the WSL VM so it takes effect:
        wsl --shutdown        (wait ~8 seconds)
 
-  3. Set up the WSL side ($distro). Inside WSL the source lives on ext4
-     (~/.local/share/chezmoi), never on /mnt/c:
+  3. Set up the WSL side ($distro) once. WSL's chezmoi uses this checkout
+     as its source (through /mnt/c):
        wsl -d $distro
-     then, either from GitHub (default):
+     then:
        bash $wslRepo/bootstrap-wsl.sh
-     or from this local clone (must be a git repo with at least one commit):
-       bash $wslRepo/bootstrap-wsl.sh $wslRepo
 
   4. After the WSL bootstrap: wsl --shutdown once more (wsl.conf changes),
      then open WezTerm; it starts in WSL:$distro.
 
-  Later updates: chezmoi apply (Windows) / chezmoi apply (WSL); topgrade on
-  Windows upgrades winget apps and runs topgrade inside $distro.
+  Later updates: chezmoi apply (or chezmoi update) on Windows applies both
+  sides; topgrade on Windows upgrades winget apps and runs topgrade inside
+  $distro.
 
 "@
 if ($failed.Count -gt 0) {

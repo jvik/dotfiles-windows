@@ -1,7 +1,7 @@
 # dotfiles-windows
 
 Work machine setup for Windows 11 + WSL2 Ubuntu, managed by
-[chezmoi](https://www.chezmoi.io/). One repo, applied from both sides:
+[chezmoi](https://www.chezmoi.io/). One checkout, applied to both sides:
 
 * **Windows**: `chezmoi.exe` targets `%USERPROFILE%`. It manages WezTerm,
   `.wslconfig`, topgrade, git, the Claude Code settings, winget packages,
@@ -9,6 +9,10 @@ Work machine setup for Windows 11 + WSL2 Ubuntu, managed by
 * **WSL**: `chezmoi` inside Ubuntu targets `~`. It manages fish, tmux,
   nvim/LazyVim, mise, git, the apt/Homebrew/mise packages, `/etc/wsl.conf`,
   Docker Engine, herdr and agent-sandbox.
+
+Both read the same Windows checkout (WSL through `/mnt/c`), and a full
+`chezmoi apply` on Windows ends by applying WSL too
+([One apply for both sides](#one-apply-for-both-sides)).
 
 Successor of the Linux/sway repo [jvik/dotfiles](https://github.com/jvik/dotfiles):
 the shell, editor and agent habits carry over, while the desktop and the
@@ -49,7 +53,8 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.config/fish`, `.config/tmux` (+ tpm), `.config/nvim`, `.config/mise`, `.config/gh`, `.config/topgrade.toml` | - | yes |
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
-| scripts | `winget-packages`, `ssh-agent-check`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| `.glzr/glazewm/config.yaml`, `.glzr/glazewm/*.ps1`, `.glzr/glazewm/*.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
+| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -114,27 +119,18 @@ Without `gh`, create the empty repo on github.com and run
 commit once with `git -c commit.gpgsign=false commit ...` and fix the agent
 afterwards.
 
-`bootstrap-wsl.sh` clones `https://github.com/jvik/dotfiles-windows` without
-credentials, so it needs a **public** repo. With a private repo, bootstrap WSL
-from the local clone instead (next step).
-
-### 3. WSL (inside Ubuntu)
+### 3. WSL (inside Ubuntu, once)
 
 ```bash
-# from GitHub (default REPO):
 bash /mnt/c/Users/<you>/repos/dotfiles-windows/bootstrap-wsl.sh
-# or from the local Windows clone (must be a git repo with at least one commit):
-bash /mnt/c/Users/<you>/repos/dotfiles-windows/bootstrap-wsl.sh /mnt/c/Users/<you>/repos/dotfiles-windows
 ```
 
-`bootstrap-wsl.sh [REPO] [extra chezmoi init args]` installs `git`/`curl` if
-missing, installs chezmoi to `~/.local/bin` (get.chezmoi.io), and runs
-`chezmoi init --apply REPO`. Extra args go to `chezmoi init`, e.g.
-`bootstrap-wsl.sh <repo> --promptDefaults`.
-
-The WSL source is always a git clone on ext4 in `~/.local/share/chezmoi`. A
-local path is cloned via a `file://` URL; a source dir on `/mnt/...` is refused
-(9P is slow, NTFS brings CRLF and permission trouble).
+`bootstrap-wsl.sh [extra chezmoi init args]` installs `curl` if missing,
+installs chezmoi to `~/.local/bin` (get.chezmoi.io), and runs
+`chezmoi init --apply --source <checkout>`, where the checkout is the
+directory the script lives in. Extra args go to `chezmoi init`, e.g.
+`bootstrap-wsl.sh --promptDefaults`. There is no second clone: WSL's chezmoi
+reads the Windows checkout through `/mnt/c`.
 
 The first apply asks for your sudo password and runs, in order: prereqs
 (build tools, Homebrew), apt (fish PPA, base packages, Docker Engine), brew,
@@ -149,9 +145,36 @@ membership and the fish login shell apply.
 Then, in WSL: `gh auth login`, `bw login`, and `claude` (log in). Claude Code
 on Windows (winget) is a separate install with its own login.
 
-If WSL was bootstrapped from the local clone, `origin` is that `file://` path,
-so `chezmoi update` pulls from the Windows clone's committed state. To switch
-to GitHub later: `chezmoi git -- remote set-url origin git@github.com:jvik/dotfiles-windows.git`.
+From then on, apply from Windows only (next section).
+
+### One apply for both sides
+
+`run_after_90-wsl-apply` is the last Windows script. It runs
+`chezmoi init --apply --source <checkout>` inside the `wslDistro` distro,
+through `wsl.exe` and a login bash (`~/.profile` puts chezmoi and Homebrew on
+PATH). So `chezmoi apply`, `chezmoi update` and `chezmoi init --apply` on
+Windows bring both sides up to date, including uncommitted edits, with no git
+round trip.
+
+* `init` rather than `apply`: WSL's chezmoi config is regenerated from
+  `home/.chezmoi.yaml.tmpl` on every run (stored answers are kept), so it never
+  goes stale and its `sourceDir` always points at the checkout. A WSL setup that
+  still uses an old `~/.local/share/chezmoi` clone moves over on the next
+  Windows apply; delete the clone afterwards.
+* Like every script, it does not run for `chezmoi apply <target>`,
+  `--dry-run` or `--exclude scripts`, so scoped applies stay on Windows.
+  `chezmoi diff` on Windows shows only the Windows side; for WSL, run
+  `chezmoi diff` in WSL.
+* WSL keeps the terminal, so sudo and chezmoi's "changed since chezmoi last
+  wrote it" prompts work as in WSL. A failing WSL apply fails the Windows
+  apply. With no distro or no chezmoi in WSL (before `bootstrap-wsl.sh`) it
+  only prints a hint.
+* `chezmoi apply` inside WSL still works and uses the same checkout. Run git
+  (and `chezmoi update`) from Windows: git over `/mnt/c` is slow.
+* Reading the checkout over 9P adds about a second per WSL apply. File modes
+  come from the source names (`executable_`, `private_`), not from NTFS. The
+  working tree must stay LF (`.gitattributes`, `.editorconfig`, VS Code's
+  `files.eol`), because WSL now reads it before git normalizes anything.
 
 ---
 
@@ -174,6 +197,7 @@ the stored answers.
 | `features.docker` | `true` | Docker Engine (docker-ce) in WSL |
 | `features.agentSandbox` | `true` | herdr, `agent-sandbox`, `new-worktree`, `hr`, the `as*` abbrs (WSL) |
 | `features.powertoys` | `true` | PowerToys + Keyboard Manager remaps (Windows) |
+| `features.glazewm` | `true` | GlazeWM tiling window manager, started at sign-in, with the Zebar status bar (Windows) |
 
 Only `home/.chezmoi.yaml.tmpl` looks at the OS. It writes `isWindows`, `isWSL`
 (linux and a kernel osrelease containing "microsoft") and `isLinux`, and
@@ -195,13 +219,13 @@ There is one installer per tool, so nothing shadows anything on PATH:
 
 * winget entries are `{id, scope (user|machine, optional), note}`. Check the
   exact id with `winget show --id <id> -e` before adding it.
-* Feature-gated lists (`packages.windows.powertoys`, `packages.wsl.docker`)
+* Feature-gated lists (`packages.windows.powertoys`, `packages.windows.glazewm`,
+  `packages.wsl.docker`)
   are installed only when the matching `features.*` flag is true.
 * The install scripts render their list into their own text, so after an edit
   the next `chezmoi apply` re-runs **only** the script whose list changed
   (`run_onchange_`). `just packages` runs just the scripts.
-* Edit on Windows, `chezmoi apply` there; commit and push, then
-  `chezmoi update` in WSL (pull + apply).
+* Edit on Windows and `chezmoi apply` there; that applies WSL too.
 
 Removing an entry does not uninstall anything. For brew, remove the formula
 from the list and apply with `BREW_BUNDLE_CLEANUP=1 chezmoi update` (fish
@@ -214,8 +238,9 @@ prints a retry command per package). chezmoi does not re-run it until the
 list changes, so run those commands by hand.
 
 Scripts named `run_after_*` run on **every** apply. They are cheap checks:
-the ssh-agent check, the PowerToys remaps, the Obsidian vimrc copy and the
-Firefox user.js.
+the ssh-agent check, the keyboard Scancode Map check, the PowerToys remaps, the Obsidian vimrc copy, the
+Firefox user.js, focus follows mouse, the window borders and the GlazeWM
+startup entry. The last one, `wsl-apply`, applies the WSL side.
 
 ---
 
@@ -236,8 +261,8 @@ The Windows `wsl` step finds topgrade with `wsl -d Ubuntu bash -lc "which topgra
 `wsl -d Ubuntu bash -lc 'which topgrade mise'`.
 
 Claude Code updates itself on both sides. Dotfile changes come from git:
-`chezmoi update` in WSL, `git pull` + `chezmoi apply` (or `chezmoi update`) on
-Windows.
+`chezmoi update` (or `git pull` + `chezmoi apply`) on Windows, which applies
+WSL too.
 
 ---
 
@@ -443,17 +468,30 @@ repositories and worktrees in the WSL home (e.g. `~/src`), not on `/mnt/c`.
 
 ---
 
+## Keyboard layout
+
+The old sway `xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`, Caps Lock
+<-> Esc and Left Alt <-> Left Win, is a Windows Scancode Map
+(`HKLM\SYSTEM\CurrentControlSet\Control\Keyboard Layout`, value
+`Scancode Map`). The keyboard driver applies it before any program sees a key,
+so PowerToys shortcuts and GlazeWM keybindings all see the physical Left Alt
+key as Win. (As a PowerToys key remap it was done in a keyboard hook, and
+GlazeWM did not see the swapped Win key.) It is machine-wide, for all users and
+keyboards.
+
+Writing it needs admin and a restart, so `run_after_35-keyboard-scancode-map`
+only checks it on every apply and, when it differs, prints the elevated
+command that sets it. Run that command, then restart Windows.
+
 ## PowerToys remaps (`features.powertoys`)
 
 The Keyboard Manager remaps are managed from this repo:
 `home/.chezmoidata/powertoys.yaml` (`powertoys.keyboardManager`) lists them in
 PowerToys' own file format (key remaps, shortcut remaps, app-specific and
-to-text remaps). By default it holds the old sway
-`xkb_options "caps:swapescape,altwin:swap_lalt_lwin"`: Caps Lock <-> Esc and
-Left Alt <-> Left Win. It also has sway-style shortcuts with mod = Win (the
-physical Left Alt key): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
-opens the Command Palette (sends its Win+Alt+Space hotkey) and `mod+Shift+F`
-starts a new Firefox window.
+to-text remaps). It holds sway-style shortcuts with mod = Win (the physical
+Left Alt key, see [Keyboard layout](#keyboard-layout)): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
+opens the Command Palette (sends its Win+Alt+Space hotkey), `mod+Shift+F`
+starts a new Firefox window and `mod+Enter` a new WezTerm window.
 
 On every apply `run_after_40-powertoys-keyboard` writes those sections into
 `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json` (the active
@@ -466,6 +504,131 @@ one, copy its entry from the file into `powertoys.yaml`.
 The script only reads PowerToys' `settings.json` and warns when Keyboard
 Manager is disabled or PowerToys does not run at startup (the remaps only work
 while PowerToys runs); turn those on in PowerToys Settings.
+
+## Focus follows mouse
+
+As in sway, a window gets keyboard focus as soon as the pointer is on it
+(no delay), without being raised. `run_after_60-focus-follows-mouse` sets this on
+every apply when it differs (it is Control Panel's "Activate a window by
+hovering over it with the mouse" plus the no-raise and delay options); to
+change it, edit the `$desired*` values at the top of the script.
+
+## No network in standby on battery
+
+So a sleeping laptop in a bag does not keep waking on Wi-Fi traffic,
+`run_after_65-standby-network` sets the active power plan's "Networking
+connectivity in Standby" to Disable on battery (Modern Standby / S0). On AC it
+is left alone. When powercfg cannot write it, the script prints the command
+for an elevated PowerShell; when a group policy sets it, the script only
+warns.
+
+`run_after_66-wake-devices` also turns off "Allow this device to wake the
+computer" for the devices matching `$noWakePatterns` at the top of the script
+(default `*Bluetooth*`; `powercfg /devicequery wake_armed` lists the
+candidates). Windows arms wake per piece of hardware, so Bluetooth headphones
+are stopped by disarming the Bluetooth adapter, which stops every Bluetooth
+device. Disarming needs admin: when it fails, the script prints the elevated
+commands.
+
+## Window borders
+
+To show which window is active, as sway's focused border does,
+`run_after_70-window-borders` turns on Settings > Personalization > Colors >
+"Show accent color on title bars and window borders" on every apply. The active
+window gets an accent-colored title bar and 1px border, inactive ones stay grey.
+The color is the Windows accent color, set in the same Settings page. While
+GlazeWM runs, its border colors replace the accent color on the border.
+
+## GlazeWM (`features.glazewm`)
+
+[GlazeWM](https://github.com/glzr-io/glazewm) tiles windows the way sway did.
+`home/dot_glzr/glazewm/config.yaml` (target `~/.glzr/glazewm/config.yaml`) is
+ported from the old sway config. mod is `lwin`, which is the physical Left Alt
+key because of the Scancode Map ([Keyboard layout](#keyboard-layout)): `mod` + hjkl/arrows moves focus and
+`mod+Shift` + hjkl/arrows moves the window, `mod+1..0` switch workspace and `mod+Shift+1..0` move the
+window there, `mod+Tab` goes to the previous workspace, `mod+r` enters resize
+mode, `mod+e` toggles the split direction, `mod+f` fullscreen,
+`mod+Shift+space` floating, `mod+Shift+e` exits and `mod+Ctrl+Shift+c`
+reloads the config. The focused window gets sway's gruvbox yellow border.
+
+* `mod+l` cannot move focus right: Windows locks the screen on Win+L before any
+  program sees it. Use `mod+Right` (and `mod+Shift+Right` to move).
+* `mod+Enter`, `mod+Shift+f`, `mod+Shift+q` and `mod+d` stay PowerToys remaps,
+  and focus follows mouse stays the Windows setting, so they keep working while
+  GlazeWM is paused (`mod+Shift+p`) or not running.
+* sway's tabbed/stacking layouts, sticky windows and scratchpad have no
+  GlazeWM equivalent.
+* Teams and Slack live on workspace 4 (a window rule). `mod+Shift+t` (Teams)
+  and `mod+Shift+s` (Slack) run `summon-app.ps1`, which fetches the app to the
+  current workspace and focuses it; pressing again sends it back to 4. If the
+  app has no window (not running or in the tray) it is opened first. Errors go
+  to `%TEMP%\glazewm-summon-app.log`.
+* Workspace 10 (`mod+0`) stays on the laptop's built-in display.
+  `bind_to_monitor` only takes a position-based index, so
+  `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
+  display through WMI and moves the workspace there whenever it is activated
+  or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
+* Tapping mod alone does not open the Start menu (`Ctrl+Esc` still does).
+  GlazeWM only prevents that after its own keybindings, so
+  `suppress-start-menu.ahk` sends an unassigned key on every Win press. It
+  passes Win through.
+* Bitwarden Desktop and the Firefox extension's pop-out window are floating and
+  sticky: a window rule ignores them, so they stay visible on every workspace,
+  and `bitwarden-on-top.ahk` keeps them always on top. It also centres each new
+  pop-out at a sensible size.
+* Greenshot's dialogs ("Save image?", Save As) are owned by its editor window,
+  which GlazeWM's window rules do not reach, so `greenshot-dialogs-on-top.ahk`
+  keeps them always on top.
+* `Alt+Space` (the physical Win+Space) toggles M365 Copilot Chat as a floating
+  drop-down (`copilot-chat.ahk`). It is an Edge app window
+  (`msedge --app=https://m365.cloud.microsoft/chat`, work account) that a
+  window rule ignores, so it floats on every workspace. The hotkey opens it if
+  needed, shows it centred on the monitor under the mouse, always on top, and
+  hides it again when pressed while it has focus. It takes over Alt+Space from
+  the window menu. If the window ever tiles instead, its title does not match
+  `COPILOT_TITLE` (keep it in sync with the rule in `config.yaml`).
+* The AutoHotkey (v2) helpers run as one process with one tray icon:
+  `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
+  config reload, and it exits when GlazeWM does. A new helper is one more
+  `#Include` line.
+* Reload the config (`mod+Ctrl+Shift+c`) rather than restarting GlazeWM: a
+  reload keeps everything. GlazeWM itself forgets on a restart which workspace
+  each window was on, so `remember-workspaces.ps1` (a GlazeWM startup command)
+  records it by window handle in
+  `%LOCALAPPDATA%\glazewm-window-workspaces.json` and moves the windows back
+  when GlazeWM starts. Only the workspace comes back, not the split layout.
+  Errors go to `%TEMP%\glazewm-remember-workspaces.log`.
+* An app opens on the workspace it was started from, even if you switch
+  workspace while it loads (GlazeWM itself uses whichever workspace is focused
+  when the window appears). `open-on-launch-workspace.ps1` (a GlazeWM startup
+  command) records the focused workspace over time and moves a new window to
+  the one that was focused when its process started. It only acts on processes
+  started in the last 20 s, so a new window of an app that was already running
+  (a second Firefox window) still opens where you are, and it leaves windows
+  that a window rule placed (Teams, Slack), elevated apps and UWP apps alone.
+  Errors go to `%TEMP%\glazewm-open-on-launch-workspace.log`.
+
+### Zebar status bar
+
+[Zebar](https://github.com/glzr-io/zebar) replaces waybar: GlazeWM starts it
+(`startup_commands`) and kills it on exit, and a window rule keeps GlazeWM from
+tiling it. `home/dot_glzr/zebar/` holds `settings.json` (which widget starts)
+and the `topbar` widget pack: one bar per monitor, docked to the top edge so
+windows tile below it. Left: that monitor's workspaces (click to focus; the
+focused one is underlined in yellow), the binding mode, PAUSED, and on the
+focused monitor the tiling direction. Right: the current media session (click
+plays/pauses), keyboard layout, volume (click mutes, scroll changes it),
+network, download/upload rate, CPU, memory, C: usage, battery, the weather
+(located from the public IP) and the date with week number and time. Colors are the gruvbox palette of the window borders. The widget is plain
+HTML/JS (`bar.html`, `styles.css`) that loads the zebar client and the icon
+font from a CDN; Zebar caches them for a week. Zebar rewrites `settings.json`
+when widgets are toggled from its tray icon; the next apply restores it.
+
+The winget packages are installed with the other feature-gated lists, and
+`run_after_80-glazewm-startup` adds GlazeWM to the per-user startup list
+(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), or removes it when the
+feature is off. After a `chezmoi apply` that changes the config, reload it with
+`mod+Ctrl+Shift+c`.
 
 ## Obsidian
 
@@ -563,7 +726,12 @@ bridge.
 must find both (via `~/.profile`).
 
 **`chezmoi: warning: config file template has changed`.** Run `chezmoi init`
-(stored answers are kept) to regenerate the config.
+on Windows (stored answers are kept) to regenerate the config. The WSL config
+is regenerated by every full Windows apply.
+
+**The Windows apply skips WSL** (`[wsl-apply] ... skipping`): the `wslDistro`
+distro is missing, or WSL has no chezmoi yet (run `bootstrap-wsl.sh`). Check
+with `wsl -d Ubuntu bash -lc 'command -v chezmoi'`.
 
 **A winget install failed.** The script printed a retry command; run it.
 chezmoi re-runs the script only when the package list changes.
@@ -585,8 +753,9 @@ just data         # template data this side sees
 ```
 
 `just` comes from winget on Windows (recipes run in Windows PowerShell) and
-brew in WSL. Each side drives its own chezmoi; from WSL, run it in
-`~/.local/share/chezmoi`, not in the `/mnt/c` checkout.
+brew in WSL; run it in the checkout on either side. On Windows, `apply-all`,
+`update` and `packages` also apply WSL; the other recipes act on the side
+they run on.
 
 The shell is fish; see [home/dot_config/fish/README.md](home/dot_config/fish/README.md).
 `ab` fuzzy-finds every abbreviation, alias and function. Neovim is LazyVim

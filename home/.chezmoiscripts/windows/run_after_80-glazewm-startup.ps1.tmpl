@@ -1,0 +1,71 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_80-glazewm-startup (runs on every apply)
+#
+# Starts GlazeWM at sign-in when features.glazewm is true, through a value in
+# HKCU\Software\Microsoft\Windows\CurrentVersion\Run (the per-user startup
+# list Task Manager shows). When the feature is false the value is removed, so
+# turning the feature off and applying undoes it. GlazeWM itself is installed
+# by run_onchange_after_10-winget-packages (packages.windows.glazewm).
+#
+# It never fails the apply. Keep this file pure ASCII and Windows PowerShell
+# 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+$wantStartup = ${{ dig "glazewm" false .features }}
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$valueName = 'GlazeWM'
+
+function Write-Info([string]$Message) { Write-Host "[glazewm] $Message" }
+
+# The winget package is an MSI; look where its uninstall entry says it went,
+# then on PATH.
+function Find-GlazeWM {
+    $uninstallKeys = @(
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    foreach ($key in $uninstallKeys) {
+        $entries = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue |
+            Where-Object { ($_.DisplayName -like 'GlazeWM*') -and $_.InstallLocation }
+        foreach ($entry in $entries) {
+            $exe = Join-Path $entry.InstallLocation 'glazewm.exe'
+            if (Test-Path -LiteralPath $exe) { return $exe }
+        }
+    }
+    $command = Get-Command 'glazewm.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) { return $command.Source }
+    return $null
+}
+
+try {
+    $current = (Get-ItemProperty -LiteralPath $runKey -ErrorAction SilentlyContinue).$valueName
+
+    if (-not $wantStartup) {
+        if ($null -ne $current) {
+            Remove-ItemProperty -LiteralPath $runKey -Name $valueName
+            Write-Info 'Removed GlazeWM from startup (features.glazewm is off).'
+        }
+        exit 0
+    }
+
+    $exe = Find-GlazeWM
+    if (-not $exe) {
+        Write-Warning '[glazewm] glazewm.exe not found; is the winget package installed? Startup entry not set.'
+        exit 0
+    }
+
+    $desired = '"{0}"' -f $exe
+    if ($current -eq $desired) {
+        Write-Info 'GlazeWM starts at sign-in: OK.'
+        exit 0
+    }
+
+    Set-ItemProperty -LiteralPath $runKey -Name $valueName -Value $desired -Type String
+    Write-Info "GlazeWM will start at sign-in ($exe). Start it now from the Start menu or sign out and in."
+} catch {
+    Write-Warning ("[glazewm] Could not set the startup entry: {0}" -f $_.Exception.Message)
+}
+exit 0
+{{ end -}}

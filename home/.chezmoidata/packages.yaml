@@ -76,6 +76,9 @@ packages:
       - id: Obsidian.Obsidian
         scope: user
         note: "vault vimrc deployed when data obsidianVault is set"
+      - id: Greenshot.Greenshot
+        scope: user
+        note: "screenshots with annotation (Inno installer; user scope avoids elevation)"
 
       # --- optional, not part of the agreed set (ids verified; uncomment to use) ---
       # - id: Mozilla.Firefox            # browser; installed by IT here. user.js: run_after_50-firefox-userjs
@@ -88,12 +91,24 @@ packages:
       # - id: jqlang.jq
       # - id: JesseDuffield.lazygit      # only if git is used natively on Windows
 
-    # Installed only when .features.powertoys (Keyboard Manager remaps:
-    # CapsLock<->Esc, LAlt<->LWin, carried over from the sway input block).
+    # Installed only when .features.powertoys (Keyboard Manager shortcut
+    # remaps, home/.chezmoidata/powertoys.yaml).
     powertoys:
       - id: Microsoft.PowerToys
         scope: user
         note: "per-user installer (PowerToysUserSetup)"
+
+    # Installed only when .features.glazewm (tiling window manager, config in
+    # ~/.glzr/glazewm/config.yaml, started at sign-in by run_after_80; Zebar is
+    # its status bar, config in ~/.glzr/zebar, started by GlazeWM).
+    glazewm:
+      - id: glzr-io.glazewm
+        note: "MSI; may prompt for elevation"
+      - id: glzr-io.zebar
+        note: "MSI; may prompt for elevation"
+      - id: AutoHotkey.AutoHotkey
+        scope: user
+        note: "runs ~/.glzr/glazewm/helpers.ahk (mod alone does not open Start, Bitwarden on top)"
 
   wsl:
     # Base OS only (`sudo apt-get install -y`). General CLIs belong in brew.
