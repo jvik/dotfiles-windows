@@ -113,6 +113,23 @@ button {
   cursor: pointer;
 }
 
+.tray {
+  padding: 0 4px;
+}
+
+.tray-icon {
+  padding: 0 4px;
+}
+
+.tray-icon:hover {
+  background: var(--bg1);
+}
+
+.tray-icon img {
+  width: 16px;
+  height: 16px;
+}
+
 .media-title {
   max-width: 250px;
   overflow: hidden;

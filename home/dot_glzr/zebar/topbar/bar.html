@@ -54,6 +54,10 @@
         thunder_day: 'weather-lightning',
         thunder_night: 'weather-lightning',
       };
+      // Tray icons shown in the bar, in this order. Each pattern is tested
+      // against "<process name> <tooltip>", since Signal and Bitwarden leave
+      // the tooltip empty and tooltips can carry extra text.
+      const TRAY_APPS = [/signal/i, /slack/i, /teams/i, /bitwarden/i, /awake/i];
 
       const providers = zebar.createProviderGroup({
         glazewm: { type: 'glazewm' },
@@ -65,8 +69,9 @@
         battery: { type: 'battery' },
         media: { type: 'media' },
         keyboard: { type: 'keyboard' },
-        // Without coordinates Zebar looks up the location from the public IP.
-        weather: { type: 'weather' },
+        systray: { type: 'systray' },
+        // Fixed to Ålesund; without coordinates Zebar would use the public IP.
+        weather: { type: 'weather', latitude: 62.4722, longitude: 6.1495 },
         day: {
           type: 'date',
           formatting: "EEE d. MMM 'uke' W",
@@ -122,6 +127,62 @@
       }
 
       // ---- Right: system status ----
+
+      // Owning process name per window handle, filled in by tray-owner.ps1.
+      // Icons registered by handle have ids like "132834:3"; GUID ids have no
+      // handle and are matched on the tooltip alone.
+      const trayOwners = new Map();
+      const TRAY_OWNER_SCRIPT = zebar
+        .currentWidget()
+        .htmlPath.replace(/[^\\/]+$/, 'tray-owner.ps1');
+
+      function trayHandle(trayIcon) {
+        return /^(\d+):\d+$/.exec(trayIcon.id)?.[1];
+      }
+
+      async function resolveTrayOwners(systray) {
+        const handles = [
+          ...new Set((systray?.icons ?? []).map(trayHandle).filter(Boolean)),
+        ].filter(handle => !trayOwners.has(handle));
+        if (!handles.length) return;
+        handles.forEach(handle => trayOwners.set(handle, '')); // one lookup each
+        try {
+          const result = await zebar.shellExec('powershell', [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            TRAY_OWNER_SCRIPT,
+            ...handles,
+          ]);
+          for (const line of result.stdout.split(/\r?\n/)) {
+            const [handle, name] = line.split('=');
+            if (handle && name) trayOwners.set(handle.trim(), name.trim());
+          }
+          render();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function trayLabel(trayIcon) {
+        return `${trayOwners.get(trayHandle(trayIcon)) ?? ''} ${trayIcon.tooltip}`;
+      }
+
+      // The apps' real tray icons; clicks are forwarded to the app.
+      function renderTray(systray) {
+        if (!systray) return '';
+        const icons = TRAY_APPS.flatMap(pattern =>
+          systray.icons.filter(trayIcon => pattern.test(trayLabel(trayIcon))),
+        );
+        if (!icons.length) return '';
+        const buttons = [...new Set(icons)].map(
+          trayIcon =>
+            `<button class="tray-icon" data-tray-id="${escapeHtml(trayIcon.id)}" title="${escapeHtml(trayIcon.tooltip)}">` +
+            `<img src="${escapeHtml(trayIcon.iconUrl)}" alt="" /></button>`,
+        );
+        return `<div class="module tray">${buttons.join('')}</div>`;
+      }
 
       function renderMedia(media) {
         const session = media?.currentSession;
@@ -314,6 +375,7 @@
           right,
           [
             renderMedia(output.media),
+            renderTray(output.systray),
             renderKeyboard(output.keyboard),
             renderAudio(output.audio),
             renderNetwork(output.network),
@@ -350,6 +412,30 @@
         }
       });
 
+      // Tray icons: left, right (app menu) and middle click go to the app.
+      function trayTarget(event) {
+        const systray = providers.outputMap.systray;
+        const target = event.target.closest('.tray-icon');
+        return systray && target ? { systray, id: target.dataset.trayId } : null;
+      }
+
+      right.addEventListener('click', event => {
+        const tray = trayTarget(event);
+        if (tray) tray.systray.onLeftClick(tray.id).catch(console.error);
+      });
+
+      right.addEventListener('contextmenu', event => {
+        const tray = trayTarget(event);
+        if (!tray) return;
+        event.preventDefault();
+        tray.systray.onRightClick(tray.id).catch(console.error);
+      });
+
+      right.addEventListener('auxclick', event => {
+        const tray = trayTarget(event);
+        if (tray && event.button === 1) tray.systray.onMiddleClick(tray.id).catch(console.error);
+      });
+
       right.addEventListener(
         'wheel',
         event => {
@@ -363,7 +449,10 @@
         { passive: true },
       );
 
-      providers.onOutput(render);
+      providers.onOutput(() => {
+        resolveTrayOwners(providers.outputMap.systray);
+        render();
+      });
       render();
     </script>
   </body>

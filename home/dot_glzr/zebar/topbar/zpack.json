@@ -16,10 +16,15 @@
       "includeFiles": ["*.html", "*.css"],
       "caching": {
         "defaultDuration": 604800,
-        "rules": []
+        "rules": [{ "urlRegex": "/(bar\\.html|styles\\.css)(\\?|$)", "duration": 0 }]
       },
       "privileges": {
-        "shellCommands": []
+        "shellCommands": [
+          {
+            "program": "powershell",
+            "argsRegex": "^-NoProfile -ExecutionPolicy Bypass -File \\S+[\\\\/]tray-owner\\.ps1( \\d+)+$"
+          }
+        ]
       },
       "presets": [
         {
