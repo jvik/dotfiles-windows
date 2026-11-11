@@ -215,7 +215,7 @@ There is one installer per tool, so nothing shadows anything on PATH:
 | cargo | Windows-side CLIs that winget lacks (just-lsp); toolchain from winget `Rustlang.Rustup` | `packages.windows.cargo` |
 | apt | base OS bits of the distro only | `packages.wsl.apt` |
 | Homebrew | general CLIs in WSL | `packages.wsl.brew` |
-| mise | version-pinned toolchains/CLIs (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI) | `home/dot_config/mise/config.toml.tmpl` |
+| mise | version-pinned toolchains/CLIs (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI, fomo) | `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl` |
 | native installer | Claude Code in WSL (updates itself) | `run_once_after_60-claude-code.sh.tmpl` |
 
 * winget entries are `{id, scope (user|machine, optional), override
@@ -234,6 +234,14 @@ from the list and apply with `BREW_BUNDLE_CLEANUP=1 chezmoi update` (fish
 accepts that syntax) to uninstall formulae that are no longer listed;
 otherwise the brew script just lists them. For mise, `mise prune` removes
 versions nothing uses. winget and apt removals are manual.
+
+chezmoi manages `~/.config/mise/conf.d/00-chezmoi.toml`, not
+`~/.config/mise/config.toml`: that one is where `mise use -g` writes, so ad-hoc
+tools go there without making chezmoi report a conflict. mise merges both and
+`config.toml` wins on a duplicate key, so keep the managed tools out of it.
+Migrating a machine that had the old managed `config.toml`: after the first
+apply, cut `config.toml` down to the tools you added yourself (or delete it),
+otherwise its stale copies override the managed pins.
 
 `run_onchange_after_10-winget-packages` logs failures and carries on (it
 prints a retry command per package). chezmoi does not re-run it until the
@@ -425,7 +433,7 @@ expand to these. Starting an agent directly still bypasses the sandbox.
   layer already isolates it, and nesting is untested.
 * Codex runs with `--no-daemon`, so it cannot reuse a host-side daemon.
   Codex is **not installed** by default; uncomment `npm:@openai/codex` in
-  `home/dot_config/mise/config.toml.tmpl` if policy allows it.
+  `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl` if policy allows it.
 
 **WSL invariant**: `/mnt`, `/run/WSL` and `WSL_INTEROP` stay out of the
 sandbox. WSL starts a Windows `.exe` by handing it to the host through the

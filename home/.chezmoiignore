@@ -56,8 +56,8 @@ scripts/**
 
 {{- if not (and .isWSL .features.agentSandbox) }}
 # ---- features.agentSandbox: herdr + agent-sandbox + new-worktree (WSL) ----
-# (hr.fish, the as* abbrs and herdr in mise/config.toml gate themselves in
-# their templates; these are plain files, so they are gated here.)
+# (hr.fish, the as* abbrs and herdr in mise/conf.d/00-chezmoi.toml gate
+# themselves in their templates; these are plain files, so they are gated here.)
 # ~/.local/bin/push-ssh-key and wsl-open are not part of the feature.
 .local/bin/agent-sandbox
 .local/bin/new-worktree

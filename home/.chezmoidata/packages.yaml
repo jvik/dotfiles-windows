@@ -11,7 +11,8 @@
 #   wsl.brew        general CLIs (Homebrew on Linux, /home/linuxbrew/.linuxbrew)
 #   mise            version-pinned toolchains/CLIs (kubectl, helm, terraform,
 #                   node, cplt, wsl2-ssh-agent, herdr, copilot CLI, ...):
-#                   home/dot_config/mise/config.toml, NOT this file
+#                   home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl,
+#                   NOT this file
 #   Claude Code     winget on Windows (below); native installer in WSL
 #                   (run_once script), not apt/brew/mise.
 #
@@ -196,4 +197,4 @@ packages:
       - fastfetch # optional eye candy
       - ranger # tmux C-r popup
       - ipython # tmux C-p popup
-      - mise # runtime/tool versions: home/dot_config/mise/config.toml
+      - mise # runtime/tool versions: home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl

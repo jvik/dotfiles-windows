@@ -1,9 +1,9 @@
 {{ if .isWSL -}}
 #!/usr/bin/env bash
-# Version-pinned toolchains and CLIs via mise (~/.config/mise/config.toml):
-# kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI.
+# Version-pinned toolchains and CLIs via mise (~/.config/mise/conf.d/00-chezmoi.toml):
+# kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI, fomo.
 # Re-runs whenever the rendered config changes:
-# config.toml hash: {{ includeTemplate "dot_config/mise/config.toml.tmpl" . | sha256sum }}
+# config hash: {{ includeTemplate "dot_config/mise/conf.d/00-chezmoi.toml.tmpl" . | sha256sum }}
 set -euo pipefail
 
 log() { printf '\033[1;34m==>\033[0m [mise] %s\n' "$*"; }
@@ -26,7 +26,7 @@ if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
 fi
 
 export MISE_YES=1
-config="$HOME/.config/mise/config.toml"
+config="$HOME/.config/mise/conf.d/00-chezmoi.toml"
 cd "$HOME"
 log "mise trust $config"
 mise trust "$config"

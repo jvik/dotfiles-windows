@@ -16,3 +16,7 @@ desktop.ini
 # Per-user local overrides
 mise.local.toml
 .mise.local.toml
+
+# Claude Code scratch dir. Claude appends this line itself when it is missing,
+# which made the managed file conflict on apply; keeping it here stops that.
+**/.claude/.cc-writes/

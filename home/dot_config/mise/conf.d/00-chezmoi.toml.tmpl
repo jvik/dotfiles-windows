@@ -1,4 +1,9 @@
-# Global mise tools for WSL (~/.config/mise/config.toml), managed by chezmoi.
+# Global mise tools for WSL (~/.config/mise/conf.d/00-chezmoi.toml), managed
+# by chezmoi. ~/.config/mise/config.toml is deliberately NOT managed: it is
+# where `mise use -g` writes, so ad-hoc tools land there without conflicting
+# with this file. mise merges both, and config.toml wins on a duplicate key,
+# so keep tools listed here out of it.
+#
 # The central place for version-pinned toolchains and CLIs. General CLIs come
 # from brew (packages.yaml), base OS bits from apt. Don't install the same tool
 # from two places (PATH shadowing).
@@ -28,6 +33,9 @@ node = "lts"
 # bare binary named just `wsl2-ssh-agent` (arm64: `wsl2-ssh-agent-arm64`), which
 # mise can't autodetect, hence the explicit asset_pattern.
 "github:mame/wsl2-ssh-agent" = { version = "latest", asset_pattern = "wsl2-ssh-agent", bin = "wsl2-ssh-agent" }
+
+# fomo (jvik/fomo), installed from its GitHub repo by the pipx backend.
+"pipx:jvik/fomo" = "latest"
 {{- if .features.agentSandbox }}
 
 # herdr: agent multiplexer (hr, new-worktree, agent-sandbox workflow).

@@ -101,7 +101,7 @@ Never install the same tool from two places (PATH shadowing).
     (`packages.windows.powertoys`, `packages.wsl.docker`) and installed only when
     `.features.<name>` is true.
   - The file is plain YAML (no template syntax).
-- `home/dot_config/mise/config.toml.tmpl`: version-pinned toolchains/CLIs
+- `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl`: version-pinned toolchains/CLIs
   (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, npm-backend
   agent CLIs).
 - Claude Code: winget on Windows, native installer in WSL (run_once script).
