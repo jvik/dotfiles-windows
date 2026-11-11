@@ -108,27 +108,68 @@ fi
 # WSL runs the first command only once systemd has finished booting, so every
 # unit on the boot path delays the first terminal after `wsl --shutdown` or a
 # reboot. Disabled, not stopped: takes effect at the next boot.
-{{- if .features.docker }}
-# Docker starts on first use instead (docker.socket stays enabled and pulls in
-# docker.service and containerd). Saves ~2 s at boot; the first `docker`
-# command takes that long instead, and restart-policy containers no longer
-# start at boot.
-for unit in docker.service containerd.service; do
-    if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
-        log "disabling $unit at boot (socket-activated by docker.socket)"
-        sudo systemctl disable --quiet "$unit"
-    fi
+#
+# The exact systemctl commands below may run without a password
+# (/etc/sudoers.d/chezmoi-wsl-system): no wildcards, so the rule allows these
+# commands and nothing else. Installing or changing that rule asks for the
+# password once; after that this step never prompts.
+#   Docker: starts on first use (docker.socket stays enabled and pulls in
+#     docker.service and containerd). Saves ~2 s at boot; the first `docker`
+#     command takes that long instead, and restart-policy containers no longer
+#     start at boot.
+#   snapd: only while no snaps are installed (Ubuntu's WSL image ships it unused).
+boot_off_docker=(docker.service containerd.service)
+boot_off_snapd=(snapd.service snapd.socket snapd.seeded.service)
+
+nopasswd_cmds=()
+for unit in "${boot_off_docker[@]}" "${boot_off_snapd[@]}"; do
+    nopasswd_cmds+=("/usr/bin/systemctl disable --quiet $unit")
 done
-sudo systemctl enable --quiet docker.socket
-{{- end }}
-# snapd: only while no snaps are installed (Ubuntu's WSL image ships it unused).
-if command -v snap >/dev/null && [ -z "$(snap list 2>/dev/null | tail -n +2)" ]; then
-    for unit in snapd.service snapd.socket snapd.seeded.service; do
+nopasswd_cmds+=("/usr/bin/systemctl enable --quiet docker.socket")
+
+# `sudo -n -l CMD` succeeds without a password once any NOPASSWD rule exists
+# (sudo's default listpw=any), so this checks the rule without prompting.
+sudoers_ok=1
+for cmd in "${nopasswd_cmds[@]}"; do
+    # shellcheck disable=SC2086 # split the command into its words on purpose
+    sudo -n -l $cmd >/dev/null 2>&1 || { sudoers_ok=0; break; }
+done
+if [ "$sudoers_ok" = 0 ]; then
+    sudoers_file=/etc/sudoers.d/chezmoi-wsl-system
+    {
+        echo "# Managed by chezmoi (dotfiles-windows, run_onchange_after_50-wsl-system)."
+        echo "# Lets the WSL system script change boot units without a password."
+        printf '%s ALL=(root) NOPASSWD: ' "$user"
+        printf '%s, ' "${nopasswd_cmds[@]}" | sed 's/, $//'
+        echo
+    } >"$tmp"
+    if sudo visudo -cqf "$tmp"; then
+        log "writing $sudoers_file (password asked once)"
+        sudo install -m 0440 -o root -g root "$tmp" "$sudoers_file"
+    else
+        log "generated sudoers rule failed visudo check; not installing it"
+    fi
+fi
+
+disable_at_boot() { # REASON UNIT...
+    local reason="$1" unit
+    shift
+    for unit in "$@"; do
         if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
-            log "disabling $unit at boot (no snaps installed)"
+            log "disabling $unit at boot ($reason)"
             sudo systemctl disable --quiet "$unit"
         fi
     done
+}
+
+{{- if .features.docker }}
+disable_at_boot "socket-activated by docker.socket" "${boot_off_docker[@]}"
+if ! systemctl is-enabled --quiet docker.socket 2>/dev/null; then
+    sudo systemctl enable --quiet docker.socket
+fi
+{{- end }}
+if command -v snap >/dev/null && [ -z "$(snap list 2>/dev/null | tail -n +2)" ]; then
+    disable_at_boot "no snaps installed" "${boot_off_snapd[@]}"
 fi
 
 if [ "$wsl_conf_changed" = 1 ]; then
