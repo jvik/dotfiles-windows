@@ -92,7 +92,9 @@ Never install the same tool from two places (PATH shadowing).
 
 - `home/.chezmoidata/packages.yaml`:
   - `packages.windows.winget`: Windows apps and Windows-side CLIs
-    (`{id, scope, note}`; verify ids with `winget show --id <id> -e`).
+    (`{id, scope, override, note}`; verify ids with `winget show --id <id> -e`).
+  - `packages.windows.cargo`: Windows-side CLIs that winget lacks
+    (`cargo install --locked`; rustup and MSVC Build Tools come from winget).
   - `packages.wsl.apt`: base OS bits of the distro only.
   - `packages.wsl.brew`: general CLIs in WSL.
   - Feature-gated lists are keyed by the feature name

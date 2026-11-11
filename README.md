@@ -54,7 +54,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
 | `.glzr/glazewm/config.yaml`, `.glzr/glazewm/*.ps1`, `.glzr/glazewm/*.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
-| scripts | `winget-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `cargo-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
 
 ---
 
@@ -212,13 +212,15 @@ There is one installer per tool, so nothing shadows anything on PATH:
 | Where | What | File |
 | --- | --- | --- |
 | winget | Windows apps and Windows-side CLIs | `home/.chezmoidata/packages.yaml` -> `packages.windows.winget` |
+| cargo | Windows-side CLIs that winget lacks (just-lsp); toolchain from winget `Rustlang.Rustup` | `packages.windows.cargo` |
 | apt | base OS bits of the distro only | `packages.wsl.apt` |
 | Homebrew | general CLIs in WSL | `packages.wsl.brew` |
 | mise | version-pinned toolchains/CLIs (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI) | `home/dot_config/mise/config.toml.tmpl` |
 | native installer | Claude Code in WSL (updates itself) | `run_once_after_60-claude-code.sh.tmpl` |
 
-* winget entries are `{id, scope (user|machine, optional), note}`. Check the
-  exact id with `winget show --id <id> -e` before adding it.
+* winget entries are `{id, scope (user|machine, optional), override
+  (installer arguments, optional), note}`. Check the exact id with
+  `winget show --id <id> -e` before adding it.
 * Feature-gated lists (`packages.windows.powertoys`, `packages.windows.glazewm`,
   `packages.wsl.docker`)
   are installed only when the matching `features.*` flag is true.
@@ -249,8 +251,9 @@ startup entry. The last one, `wsl-apply`, applies the WSL side.
 `topgrade` (`just upgrade`; `sysup` in fish) on both sides. **Running it on
 Windows covers both**:
 
-* **Windows** (`%APPDATA%\topgrade.toml`, `only = ["winget", "wsl"]`): winget
-  upgrades the Windows apps (topgrade included, via `self_rename`), then the
+* **Windows** (`%APPDATA%\topgrade.toml`, `only = ["winget", "rustup", "cargo", "wsl"]`): winget
+  upgrades the Windows apps (topgrade included, via `self_rename`), rustup and
+  cargo (`cargo install-update`) the Rust toolchain and crates, then the
   `wsl` step runs topgrade inside Ubuntu. `wsl --update` is left out on
   purpose (IT owns the WSL version).
 * **WSL** (`~/.config/topgrade.toml`): apt (`system`, prompts for sudo),

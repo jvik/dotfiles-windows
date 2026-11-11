@@ -3,7 +3,8 @@
   Lists to install: packages.windows.winget always, plus every feature-gated
   list packages.windows.<name> whose .features.<name> is true (e.g.
   packages.windows.powertoys when features.powertoys). See the header of
-  home/.chezmoidata/packages.yaml.
+  home/.chezmoidata/packages.yaml. packages.windows.cargo is not a winget
+  list (run_onchange_after_12-cargo-packages installs it).
 */ -}}
 {{- $win := dig "windows" (dict) .packages -}}
 {{- $groups := list -}}
@@ -11,7 +12,7 @@
 {{-   $groups = append $groups (dict "name" "winget" "items" (get $win "winget")) -}}
 {{- end -}}
 {{- range $name, $items := $win -}}
-{{-   if and (ne $name "winget") (hasKey $.features $name) (get $.features $name) -}}
+{{-   if and (ne $name "winget") (ne $name "cargo") (hasKey $.features $name) (get $.features $name) -}}
 {{-     $groups = append $groups (dict "name" $name "items" $items) -}}
 {{-   end -}}
 {{- end -}}
@@ -24,7 +25,8 @@
 #
 # - Already installed (per `winget list --id <id> --exact`) => skipped.
 # - Missing => `winget install` from the winget source, honouring the optional
-#   per-package scope (user|machine). Machine-scope installers may show UAC.
+#   per-package scope (user|machine) and installer override. Machine-scope
+#   installers may show UAC.
 # - A failure is logged and the loop continues; failures are summarized at the
 #   end. The script still exits 0 so the rest of `chezmoi apply` runs.
 # - Upgrades are topgrade's job (winget step), not this script's.
@@ -38,7 +40,7 @@ $packages = @(
 {{-   $group := .name }}
     # packages.windows.{{ $group }}
 {{-   range .items }}
-    @{ Id = '{{ .id | replace "'" "''" }}'; Scope = '{{ if hasKey . "scope" }}{{ .scope | lower | replace "'" "" }}{{ end }}'; Note = '{{ if hasKey . "note" }}{{ regexReplaceAll "[^ -~]" .note "?" | replace "'" "''" }}{{ end }}' }
+    @{ Id = '{{ .id | replace "'" "''" }}'; Scope = '{{ if hasKey . "scope" }}{{ .scope | lower | replace "'" "" }}{{ end }}'; Override = '{{ if hasKey . "override" }}{{ .override | replace "'" "''" }}{{ end }}'; Note = '{{ if hasKey . "note" }}{{ regexReplaceAll "[^ -~]" .note "?" | replace "'" "''" }}{{ end }}' }
 {{-   end }}
 {{- end }}
 )
@@ -95,6 +97,7 @@ foreach ($p in $packages) {
         '--disable-interactivity'
     )
     if ($scope) { $wingetArgs += @('--scope', $scope) }
+    if ($p.Override) { $wingetArgs += @('--override', $p.Override) }
 
     & winget @wingetArgs
     $code = $LASTEXITCODE
@@ -112,7 +115,10 @@ foreach ($p in $packages) {
     } else {
         $hex = '0x{0:X8}' -f $code
         Write-Warning "[winget] FAILED $label (exit code $hex); continuing."
-        $failed.Add(("{0}  [exit {1}]  retry: winget install --id {0} --exact --source winget{2}" -f $id, $hex, $(if ($scope) { " --scope $scope" } else { '' })))
+        $retryArgs = ''
+        if ($scope) { $retryArgs += " --scope $scope" }
+        if ($p.Override) { $retryArgs += " --override `"$($p.Override)`"" }
+        $failed.Add(("{0}  [exit {1}]  retry: winget install --id {0} --exact --source winget{2}" -f $id, $hex, $retryArgs))
     }
 }
 

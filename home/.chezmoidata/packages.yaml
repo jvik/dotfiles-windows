@@ -5,7 +5,9 @@
 #
 # Ownership - exactly ONE installer per tool, so nothing shadows anything on PATH:
 #   windows.winget  Windows apps and Windows-side CLIs
-#   wsl.apt         base OS bits of the Ubuntu distro only
+#   windows.cargo   Windows-side CLIs that winget lacks (`cargo install`,
+#                   toolchain from winget Rustlang.Rustup)
+#   wsl.apt        base OS bits of the Ubuntu distro only
 #   wsl.brew        general CLIs (Homebrew on Linux, /home/linuxbrew/.linuxbrew)
 #   mise            version-pinned toolchains/CLIs (kubectl, helm, terraform,
 #                   node, cplt, wsl2-ssh-agent, herdr, copilot CLI, ...):
@@ -27,6 +29,8 @@
 #          is what we want). Portable (zip/exe) packages use `user` so their
 #          command lands in %LOCALAPPDATA%\Microsoft\WinGet\Links, which WSL's
 #          fish adds to PATH explicitly (appendWindowsPath=false).
+#   override  optional: installer arguments -> `--override "<override>"`,
+#          replacing winget's own silent switches (so include them).
 #   note   optional, free text for humans.
 
 packages:
@@ -69,6 +73,12 @@ packages:
       - id: Anthropic.ClaudeCode
         scope: user
         note: "native Windows Claude Code (portable); needs Git.Git for its Bash tool. The WSL copy uses the native installer"
+      - id: Microsoft.VisualStudio.2022.BuildTools
+        scope: machine
+        override: "--wait --passive --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+        note: "MSVC linker + Windows SDK, needed by the Rust msvc toolchain; several GB, prompts for elevation"
+      - id: Rustlang.Rustup
+        note: "rustup + cargo in %USERPROFILE%\\.cargo\\bin (rustup adds it to the user PATH); installs packages.windows.cargo"
 
       # --- apps ---------------------------------------------------------------
       - id: Bitwarden.Bitwarden
@@ -92,6 +102,13 @@ packages:
       # - id: Bitwarden.CLI              # bw on Windows (bw in WSL comes from brew)
       # - id: jqlang.jq
       # - id: JesseDuffield.lazygit      # only if git is used natively on Windows
+
+    # `cargo install --locked <crate>` (run_onchange_after_12-cargo-packages),
+    # only for Windows-side CLIs that winget lacks. Not a feature flag.
+    # Upgrades: topgrade's cargo step, which needs cargo-update.
+    cargo:
+      - cargo-update # `cargo install-update`, used by topgrade's cargo step
+      - just-lsp # VS Code just extension (nefrob.vscode-just-syntax) on Windows; WSL's comes from brew
 
     # Installed only when .features.powertoys (Keyboard Manager shortcut
     # remaps, home/.chezmoidata/powertoys.yaml).

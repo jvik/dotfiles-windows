@@ -1,0 +1,79 @@
+{{- if .isWindows -}}
+{{- $crates := dig "windows" "cargo" (list) .packages -}}
+# chezmoi: run_onchange_after_12-cargo-packages
+#
+# Installs the Windows-side CLIs listed in packages.windows.cargo
+# (home/.chezmoidata/packages.yaml) with `cargo install --locked`. The list is
+# rendered into this script, so chezmoi re-runs it whenever the list changes.
+#
+# - rustup and cargo come from winget (Rustlang.Rustup, run_onchange_after_10);
+#   the MSVC linker from winget Microsoft.VisualStudio.2022.BuildTools.
+#   cargo is called by its full path: a rustup installed earlier in this same
+#   apply is not on this process's PATH yet.
+# - No default toolchain yet => `rustup default stable` first.
+# - Already installed (per `cargo install --list`) => skipped.
+# - A failure is logged and the loop continues. The script still exits 0 so
+#   the rest of `chezmoi apply` runs.
+# - Upgrades are topgrade's job (rustup + cargo steps), not this script's.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+$crates = @(
+{{- range $crates }}
+    '{{ . | replace "'" "''" }}'
+{{- end }}
+)
+
+function Write-Step([string]$Message) { Write-Host "[cargo] $Message" }
+
+if ($crates.Count -eq 0) {
+    Write-Step 'packages.windows.cargo is empty; nothing to do.'
+    exit 0
+}
+
+$cargoHome = $env:CARGO_HOME
+if (-not $cargoHome) { $cargoHome = Join-Path $env:USERPROFILE '.cargo' }
+$cargoBin = Join-Path $cargoHome 'bin'
+$cargo = Join-Path $cargoBin 'cargo.exe'
+$rustup = Join-Path $cargoBin 'rustup.exe'
+
+if (-not (Test-Path -LiteralPath $cargo)) {
+    Write-Warning "[cargo] $cargo not found (winget Rustlang.Rustup missing or failed); skipping cargo packages."
+    Write-Warning '[cargo] chezmoi will not re-run this script until the list changes; then run by hand: cargo install --locked <crate>'
+    exit 0
+}
+
+# Lets rustup's proxies and cargo's build scripts find each other.
+if (($env:Path -split ';') -notcontains $cargoBin) { $env:Path = "$cargoBin;$env:Path" }
+
+& $rustup default 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Step 'no default Rust toolchain; running: rustup default stable'
+    & $rustup default stable
+}
+
+# `cargo install --list` prints "<crate> v<version>:" for each installed crate.
+$installed = @(& $cargo install --list 2>$null | Where-Object { $_ -match '^(\S+) v' } | ForEach-Object { $Matches[1] })
+
+$failed = New-Object System.Collections.Generic.List[string]
+foreach ($crate in $crates) {
+    if ($installed -contains $crate) {
+        Write-Step "ok       $crate (already installed)"
+        continue
+    }
+    Write-Step "install  $crate"
+    & $cargo install --locked $crate
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "[cargo] FAILED $crate; continuing."
+        $failed.Add($crate)
+    }
+}
+
+if ($failed.Count -gt 0) {
+    Write-Warning ('[cargo] Failed: ' + ($failed -join ', ') + '. A "link.exe not found" error means the MSVC Build Tools are missing (winget Microsoft.VisualStudio.2022.BuildTools with the VCTools workload).')
+    Write-Warning '[cargo] Retry by hand: cargo install --locked <crate>'
+}
+exit 0
+{{ end -}}

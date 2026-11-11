@@ -3,6 +3,8 @@
 #
 # One `topgrade` run on Windows updates both sides:
 #   winget -> Windows apps (wezterm, Bitwarden, PowerToys, topgrade itself, ...)
+#   rustup -> the Rust toolchain; cargo -> packages.windows.cargo crates
+#             (`cargo install-update -a`, from the cargo-update crate)
 #   wsl    -> runs topgrade inside each WSL distro that has it installed
 #             ({{ .wslDistro }}), which then uses its own ~/.config/topgrade.toml
 #             (apt, brew, mise, fish/tmux plugins). topgrade looks for it
@@ -27,7 +29,7 @@ no_self_update = true
 #   scoop, chocolatey, powershell modules, Windows Update: not used / owned by IT.
 # winget runs without sudo (winget_use_sudo is false by default; sudo for
 # Windows is normally policy-disabled), so machine-scope upgrades may show UAC.
-only = ["winget", "wsl"]
+only = ["winget", "rustup", "cargo", "wsl"]
 
 [windows]
 # topgrade.exe is a winget portable package that the winget step upgrades
