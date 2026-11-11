@@ -95,9 +95,13 @@ window_effects:
 window_behavior:
   initial_state: 'tiling'
   state_defaults:
+    # sway keeps floating windows above the tiled ones. Also needed for the
+    # dialogs GlazeWM floats on its own (non-resizable ones, e.g. Explorer's
+    # copy window): they are floating before window_rules run, and
+    # set-floating on a floating window ignores --shown-on-top.
     floating:
       centered: true
-      shown_on_top: false
+      shown_on_top: true
     fullscreen:
       maximized: false
       shown_on_top: false
