@@ -5,7 +5,8 @@
 ;
 ; Included by helpers.ahk; not meant to run on its own.
 
-; width and height are at 100% scaling.
+; width and height are pixels at 100% scaling, or, if at most 1, a fraction of
+; the monitor's work area.
 ShowDropDown(hwnd, width, height) {
     monitor := MonitorUnderMouse()
     if (WinGetMinMax(hwnd) != 0)  ; minimized or maximized
@@ -31,7 +32,7 @@ MonitorUnderMouse() {
 CenterOnMonitor(hwnd, monitor, width, height) {
     scale := DllCall("GetDpiForWindow", "Ptr", hwnd, "UInt") / 96
     MonitorGetWorkArea monitor, &l, &t, &r, &b
-    w := Min(Round(width * scale), r - l)
-    h := Min(Round(height * scale), b - t)
+    w := Min(Round(width <= 1 ? width * (r - l) : width * scale), r - l)
+    h := Min(Round(height <= 1 ? height * (b - t) : height * scale), b - t)
     WinMove l + (r - l - w) // 2, t + (b - t - h) // 2, w, h, hwnd
 }

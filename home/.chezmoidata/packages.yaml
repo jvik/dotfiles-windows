@@ -79,6 +79,8 @@ packages:
       - id: Greenshot.Greenshot
         scope: user
         note: "screenshots with annotation (Inno installer; user scope avoids elevation)"
+      - id: Flow-Launcher.Flow-Launcher
+        note: "launcher on mod+d (PowerToys remap to its Ctrl+Alt+Space hotkey); per-user Squirrel installer"
 
       # --- optional, not part of the agreed set (ids verified; uncomment to use) ---
       # - id: Mozilla.Firefox            # browser; installed by IT here. user.js: run_after_50-firefox-userjs

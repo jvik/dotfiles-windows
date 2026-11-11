@@ -14,8 +14,8 @@
 ; window_title of that rule.
 ;
 ; The hotkey takes Alt+Space from the window menu (and from PowerToys Run or
-; the Copilot app, if either uses it). Win+Alt+Space (Command Palette, mod+d)
-; is a different hotkey and still works.
+; the Copilot app, if either uses it). Flow Launcher (mod+d) is moved to
+; Ctrl+Alt+Space for the same reason.
 ;
 ; Included by helpers.ahk; not meant to run on its own.
 
@@ -25,7 +25,7 @@ COPILOT_URL := "https://m365.cloud.microsoft/chat"
 ; windows, including one with a Copilot tab open.
 COPILOT_TITLE := "^[^-]*Copilot[^-]*$"
 EDGE_WINDOWS := "ahk_exe msedge.exe ahk_class Chrome_WidgetWin_1"
-CHAT_W := 800  ; at 100% scaling
+CHAT_W := 0.5  ; half the monitor's width (see ShowDropDown)
 CHAT_H := 900
 LAUNCH_TIMEOUT_MS := 20000
 SW_SHOWMINNOACTIVE := 7
@@ -108,6 +108,17 @@ IsEdgeAppWindow(hwnd) {
     }
     return false
 }
+
+; ShowDropDown makes the window always on top, but that does not last: like
+; Bitwarden's, its topmost flag is cleared when you click another window, and it
+; sinks behind the tiled windows. Put it back while the window is shown. Uses
+; KeepOnTop() from bitwarden-on-top.ahk.
+KeepCopilotChatOnTop() {
+    global copilotHwnd
+    if copilotHwnd && DllCall("IsWindowVisible", "Ptr", copilotHwnd)
+        KeepOnTop(copilotHwnd)
+}
+SetTimer KeepCopilotChatOnTop, 500
 
 ; A hidden window has no taskbar button, so leaving it hidden when the helpers
 ; exit (GlazeWM quits, or a config reload restarts them) would strand it. Hand

@@ -11,7 +11,7 @@
 #
 # Left to other tools on purpose, so they keep working while GlazeWM is
 # paused: mod+Enter (WezTerm), mod+Shift+f (Firefox), mod+Shift+q (close) and
-# mod+d (Command Palette) are PowerToys remaps (.chezmoidata/powertoys.yaml),
+# mod+d (Flow Launcher) are PowerToys remaps (.chezmoidata/powertoys.yaml),
 # and focus follows mouse is the Windows setting from
 # run_after_60-focus-follows-mouse (it has the 150 ms delay GlazeWM lacks).
 
@@ -134,6 +134,8 @@ window_rules:
         window_class: { equals: 'WinUIDesktopWin32WindowClass' }
       - window_process: { equals: 'PowerToys' }
         window_title: { regex: '.*? - Peek' }
+      # Flow Launcher's search box (mod+d) and its settings window.
+      - window_process: { equals: 'Flow.Launcher' }
       - window_process: { equals: 'EXCEL' }
         window_class: { not_regex: 'XLMAIN' }
       - window_process: { equals: 'WINWORD' }

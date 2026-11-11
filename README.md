@@ -490,7 +490,9 @@ The Keyboard Manager remaps are managed from this repo:
 PowerToys' own file format (key remaps, shortcut remaps, app-specific and
 to-text remaps). It holds sway-style shortcuts with mod = Win (the physical
 Left Alt key, see [Keyboard layout](#keyboard-layout)): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
-opens the Command Palette (sends its Win+Alt+Space hotkey), `mod+Shift+F`
+opens Flow Launcher (sends its Ctrl+Alt+Space hotkey, which
+`AppData/Roaming/FlowLauncher/Settings/modify_Settings.json` sets in Flow's
+settings; Flow reads it at start, so restart Flow after a change), `mod+Shift+F`
 starts a new Firefox window and `mod+Enter` a new WezTerm window.
 
 On every apply `run_after_40-powertoys-keyboard` writes those sections into

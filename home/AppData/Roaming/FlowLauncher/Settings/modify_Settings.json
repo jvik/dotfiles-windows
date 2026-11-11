@@ -1,0 +1,23 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  Flow Launcher settings, merged rather than owned: only the hotkey is set
+  here, everything else stays Flow's (edit it in Flow's settings window).
+
+  The hotkey is the target of the mod+d PowerToys remap
+  (.chezmoidata/powertoys.yaml); keep the two in sync. Flow's default
+  Alt+Space is taken by copilot-chat.ahk.
+
+  Flow writes this file when it exits and reads it only at start, so after a
+  change restart Flow (or the change is lost when it exits). Before Flow's
+  first run there is no file; nothing is created then, so Flow writes its own
+  defaults and the next apply sets the hotkey.
+*/ -}}
+{{- $hotkey := "Ctrl + Alt + Space" -}}
+{{- if .chezmoi.stdin -}}
+{{-   $current := .chezmoi.stdin | fromJson -}}
+{{-   if eq (get $current "Hotkey") $hotkey -}}
+{{-     .chezmoi.stdin -}}
+{{-   else -}}
+{{ set $current "Hotkey" $hotkey | toPrettyJson }}
+{{   end -}}
+{{- end -}}
