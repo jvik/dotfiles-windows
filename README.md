@@ -498,6 +498,12 @@ opens Flow Launcher (sends its Ctrl+Alt+Space hotkey, which
 settings; Flow reads it at start, so restart Flow after a change), `mod+Shift+F`
 starts a new Firefox window and `mod+Enter` a new WezTerm window.
 
+To go back from Flow Launcher to PowerToys' Command Palette on `mod+D`, set
+the `Win + D` remap's `newRemapKeys` in `powertoys.yaml` back to
+`"91;164;32"` (Win+Alt+Space, the Command Palette hotkey). To remove Flow
+completely, also drop its `packages.yaml` entry and its GlazeWM ignore rule,
+and `git rm` `home/AppData/Roaming/FlowLauncher/Settings/modify_Settings.json`.
+
 On every apply `run_after_40-powertoys-keyboard` writes those sections into
 `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json` (the active
 profile) when they differ, creating the file if PowerToys has not yet, and

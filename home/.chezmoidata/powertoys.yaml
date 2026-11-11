@@ -41,7 +41,9 @@ powertoys:
           newRemapKeys: "164;115"    # -> Alt + F4 (close window)
         - originalKeys: "91;68"      # Win + D
           newRemapKeys: "162;164;32" # -> Ctrl + Alt + Space (Flow Launcher hotkey,
-                                     #    AppData/Roaming/FlowLauncher/Settings/modify_Settings.json)
+                                     #    AppData/Roaming/FlowLauncher/Settings/modify_Settings.json).
+                                     #    "91;164;32" (Win + Alt + Space) gives PowerToys'
+                                     #    Command Palette instead.
         - originalKeys: "91;16;70"   # Win + Shift + F -> new Firefox window
           newRemapKeys: ""
           operationType: 1           # run program
