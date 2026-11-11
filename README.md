@@ -648,6 +648,12 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   (a second Firefox window) still opens where you are, and it leaves windows
   that a window rule placed (Teams, Slack), elevated apps and UWP apps alone.
   Errors go to `%TEMP%\glazewm-open-on-launch-workspace.log`.
+* Autotiling, as sway's `autotiling` service did: `autotiling.ps1` (a GlazeWM
+  startup command) sets the split direction each time a tiling window gets
+  focus, vertical if the window is taller than wide and horizontal otherwise,
+  so new windows spiral in without `mod+e`. `mod+e` still toggles by hand
+  until focus moves again. A config reload also starts it if it is not
+  running. Errors go to `%TEMP%\glazewm-autotiling.log`.
 
 ### Zebar status bar
 
