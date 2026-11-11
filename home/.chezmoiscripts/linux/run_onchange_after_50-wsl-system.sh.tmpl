@@ -3,6 +3,7 @@
 # WSL system settings that live outside $HOME (sudo):
 #   /etc/wsl.conf                    systemd, default user, interop without the Windows PATH
 #   /etc/sysctl.d/99-inotify.conf    inotify limits for VS Code Remote-WSL and file watchers
+#   systemd units                    Docker socket-activated, unused snapd off (faster boot)
 # Only the keys below are set in /etc/wsl.conf; other sections and keys
 # (e.g. ones IT or the distro installer added) are kept as they are.
 # Windows dirs that fish needs (System32, PowerShell, OpenSSH, WinGet links,
@@ -101,6 +102,33 @@ if ! cmp -s "$tmp" "$sysctl_file"; then
     log "writing $sysctl_file"
     sudo install -m 0644 "$tmp" "$sysctl_file"
     sudo sysctl -q -p "$sysctl_file" || log "sysctl -p failed (applies at next boot)"
+fi
+
+# --- Units that slow down the first WSL start -----------------------------------
+# WSL runs the first command only once systemd has finished booting, so every
+# unit on the boot path delays the first terminal after `wsl --shutdown` or a
+# reboot. Disabled, not stopped: takes effect at the next boot.
+{{- if .features.docker }}
+# Docker starts on first use instead (docker.socket stays enabled and pulls in
+# docker.service and containerd). Saves ~2 s at boot; the first `docker`
+# command takes that long instead, and restart-policy containers no longer
+# start at boot.
+for unit in docker.service containerd.service; do
+    if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+        log "disabling $unit at boot (socket-activated by docker.socket)"
+        sudo systemctl disable --quiet "$unit"
+    fi
+done
+sudo systemctl enable --quiet docker.socket
+{{- end }}
+# snapd: only while no snaps are installed (Ubuntu's WSL image ships it unused).
+if command -v snap >/dev/null && [ -z "$(snap list 2>/dev/null | tail -n +2)" ]; then
+    for unit in snapd.service snapd.socket snapd.seeded.service; do
+        if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+            log "disabling $unit at boot (no snaps installed)"
+            sudo systemctl disable --quiet "$unit"
+        fi
+    done
 fi
 
 if [ "$wsl_conf_changed" = 1 ]; then

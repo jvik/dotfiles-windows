@@ -718,7 +718,10 @@ in the overrides file.
 ## Docker (WSL, `features.docker`)
 
 Docker Engine (docker-ce, buildx and compose plugins) from Docker's own apt
-repository, inside WSL, with systemd starting `docker.service`. No Docker
+repository, inside WSL. `docker.service` is socket-activated rather than
+started at boot (it delayed the first WSL terminal by ~2 s), so the first
+`docker` command takes a couple of seconds, and containers with a restart
+policy start only once Docker has been used. No Docker
 Desktop: don't install it, its WSL integration would conflict. The apt script
 removes conflicting distro packages (`docker.io`, `podman-docker`, ...) and
 adds you to the `docker` group; after `wsl --shutdown`, check with
