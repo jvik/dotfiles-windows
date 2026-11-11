@@ -96,11 +96,15 @@ config.cursor_blink_ease_out = "Constant"
 -- Every new tab/pane opens in WSL ({{ .wslDistro }}); fish is the login shell
 -- there (chsh), so no default_prog is needed. Start in the Linux home
 -- instead of the translated Windows cwd (/mnt/c is slow for git/fish prompt).
-local wsl_domains = wezterm.default_wsl_domains()
-for _, dom in ipairs(wsl_domains) do
-	dom.default_cwd = "~"
-end
-config.wsl_domains = wsl_domains
+-- Declared statically: default_wsl_domains() shells out to `wsl.exe -l -v` on
+-- every config evaluation (~200 ms per start).
+config.wsl_domains = {
+	{
+		name = "WSL:{{ .wslDistro }}",
+		distribution = "{{ .wslDistro }}",
+		default_cwd = "~",
+	},
+}
 config.default_domain = "WSL:{{ .wslDistro }}"
 
 -- Windows shells are still reachable from the launcher (right-click "+").
