@@ -20,6 +20,9 @@
 # (0 remap, 1 run program, 2 open URI); easiest is to build one in the
 # PowerToys editor and copy it from the file.
 #
+# runProgramFilePath/runProgramArgs/runProgramStartInDir may use %VAR%
+# environment variables; the apply script expands them before writing.
+#
 # Plain YAML, no template syntax. Every list must stay present (empty is [])
 # because PowerToys skips a whole section when its key is missing.
 
@@ -53,11 +56,12 @@ powertoys:
           runProgramElevationLevel: 0        # same as PowerToys
           runProgramAlreadyRunningAction: 1  # start another, do not just focus
           runProgramStartWindowType: 0       # normal window
-        - originalKeys: "91;13"      # Win + Enter -> new WezTerm window
+        - originalKeys: "91;13"      # Win + Enter -> new WezTerm window, opened by
+                                     #    the running WezTerm (~/.wezterm-new-window.ahk)
           newRemapKeys: ""
           operationType: 1           # run program
-          runProgramFilePath: 'C:\Program Files\WezTerm\wezterm-gui.exe'
-          runProgramArgs: ""
+          runProgramFilePath: '%LOCALAPPDATA%\Programs\AutoHotkey\v2\AutoHotkey64.exe'
+          runProgramArgs: '"%USERPROFILE%\.wezterm-new-window.ahk"'
           runProgramStartInDir: ""
           runProgramElevationLevel: 0        # same as PowerToys
           runProgramAlreadyRunningAction: 1  # start another, do not just focus

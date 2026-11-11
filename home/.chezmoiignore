@@ -19,6 +19,7 @@
 .chezmoiscripts/windows/**
 .wslconfig
 .wezterm.lua
+.wezterm-new-window.ahk
 AppData
 AppData/**
 Documents

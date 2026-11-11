@@ -504,7 +504,10 @@ Left Alt key, see [Keyboard layout](#keyboard-layout)): `mod+Shift+Q` closes the
 opens Flow Launcher (sends its Ctrl+Alt+Space hotkey, which
 `AppData/Roaming/FlowLauncher/Settings/modify_Settings.json` sets in Flow's
 settings; Flow reads it at start, so restart Flow after a change), `mod+Shift+F`
-starts a new Firefox window and `mod+Enter` a new WezTerm window.
+starts a new Firefox window and `mod+Enter` a new WezTerm window. The WezTerm
+window comes from `~/.wezterm-new-window.ahk` (AutoHotkey), which asks the
+running WezTerm for a new window through `wezterm cli` and starts
+`wezterm-gui.exe` only when none is running.
 
 To go back from Flow Launcher to PowerToys' Command Palette on `mod+D`, set
 the `Win + D` remap's `newRemapKeys` in `powertoys.yaml` back to

@@ -83,6 +83,14 @@ function Repair-KeyCodeTypes($Sections) {
                     $prop = $entry.PSObject.Properties[$field]
                     if (($null -ne $prop) -and -not ($prop.Value -is [string])) { $prop.Value = [string]$prop.Value }
                 }
+                # Run-program paths are per user (%LOCALAPPDATA%, %USERPROFILE%),
+                # so they are written expanded rather than relying on PowerToys.
+                foreach ($field in @('runProgramFilePath', 'runProgramArgs', 'runProgramStartInDir')) {
+                    $prop = $entry.PSObject.Properties[$field]
+                    if (($null -ne $prop) -and ($prop.Value -is [string])) {
+                        $prop.Value = [Environment]::ExpandEnvironmentVariables($prop.Value)
+                    }
+                }
             }
         }
     }
