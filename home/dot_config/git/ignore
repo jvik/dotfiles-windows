@@ -20,3 +20,7 @@ mise.local.toml
 # Claude Code scratch dir. Claude appends this line itself when it is missing,
 # which made the managed file conflict on apply; keeping it here stops that.
 **/.claude/.cc-writes/
+
+# Claude Code's per-project local settings (personal permissions). Claude adds
+# this line itself too, so it is kept here for the same reason.
+**/.claude/settings.local.json
