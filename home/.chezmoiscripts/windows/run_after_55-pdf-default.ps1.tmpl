@@ -1,0 +1,48 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_55-pdf-default (runs on every apply)
+#
+# Checks that SumatraPDF (winget, packages.yaml) opens .pdf files. Windows 11
+# keeps the per-user choice in a hash-protected UserChoice key, and the UCPD
+# driver blocks scripts from writing it for .pdf, so this only reports and
+# prints how to set it in Settings. It never fails the apply.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Stop'
+
+$desiredProgId = 'SumatraPDF.pdf'
+$registeredAppName = 'SumatraPDF'
+$fileExtsKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.pdf'
+
+function Write-Info([string]$Message) { Write-Host "[pdf] $Message" }
+
+# Newer Windows 11 builds write UserChoiceLatest and keep UserChoice only for
+# older readers, so the newer key wins when both exist.
+function Get-PdfProgId {
+    foreach ($subKey in @('UserChoiceLatest\ProgId', 'UserChoice')) {
+        $choice = Get-ItemProperty -LiteralPath "$fileExtsKey\$subKey" -ErrorAction SilentlyContinue
+        if ($null -ne $choice -and $choice.ProgId) { return [string]$choice.ProgId }
+    }
+    return ''
+}
+
+try {
+    if (-not (Test-Path -LiteralPath "HKCU:\Software\Classes\$desiredProgId")) {
+        Write-Info 'SumatraPDF is not installed (yet); skipping the .pdf default check.'
+        exit 0
+    }
+
+    $current = Get-PdfProgId
+    if ($current -eq $desiredProgId) {
+        Write-Info 'SumatraPDF opens .pdf files: OK.'
+        exit 0
+    }
+
+    if (-not $current) { $current = '(none)' }
+    Write-Warning ("[pdf] .pdf opens with {0}, not SumatraPDF. Set it in Settings (Default apps > SumatraPDF > .pdf):" -f $current)
+    Write-Warning ("[pdf]   Start-Process 'ms-settings:defaultapps?registeredAppUser={0}'" -f $registeredAppName)
+} catch {
+    Write-Warning ("[pdf] Could not check the .pdf default: {0}" -f $_.Exception.Message)
+}
+exit 0
+{{ end -}}

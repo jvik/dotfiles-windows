@@ -103,7 +103,7 @@ Never install the same tool from two places (PATH shadowing).
   - The file is plain YAML (no template syntax).
 - `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl`: version-pinned toolchains/CLIs
   (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, npm-backend
-  agent CLIs).
+  agent CLIs, Playwright MCP).
 - Claude Code: winget on Windows, native installer in WSL (run_once script).
 - Updates belong to `topgrade` on each side (scoped by its `only` list), not to
   the install scripts. The Windows run also runs topgrade inside WSL.

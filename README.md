@@ -54,7 +54,7 @@ What each side manages (`chezmoi managed` on that side shows the full list):
 | `.local/bin/wsl-open`, `.local/bin/push-ssh-key`, `.profile` | - | yes |
 | `.local/bin/agent-sandbox`, `.local/bin/new-worktree`, `.config/herdr` | - | with `features.agentSandbox` |
 | `.glzr/glazewm/config.yaml`, `.glzr/glazewm/*.ps1`, `.glzr/glazewm/*.ahk`, `.glzr/zebar/**` | with `features.glazewm` | - |
-| scripts | `winget-packages`, `cargo-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code` |
+| scripts | `winget-packages`, `cargo-packages`, `ssh-agent-check`, `keyboard-scancode-map`, `obsidian-vimrc`, `powertoys-keyboard`, `firefox-userjs`, `pdf-default`, `focus-follows-mouse`, `window-borders`, `glazewm-startup`, `wsl-apply` | `prereqs`, `apt`, `brew`, `mise`, `shell`, `wsl-system`, `claude-code`, `playwright` |
 
 ---
 
@@ -135,7 +135,8 @@ reads the Windows checkout through `/mnt/c`.
 The first apply asks for your sudo password and runs, in order: prereqs
 (build tools, Homebrew), apt (fish PPA, base packages, Docker Engine), brew,
 mise, shell (`chsh` to fish, Fisher plugins, tpm), wsl-system (`/etc/wsl.conf`,
-inotify limits) and Claude Code (native installer).
+inotify limits), Claude Code (native installer) and Playwright (browser
+libraries, Google Chrome, Playwright MCP).
 
 Afterwards, **from Windows**: `wsl --shutdown`, wait about 8 seconds, then
 open WezTerm. This is needed once because `/etc/wsl.conf` changed (systemd,
@@ -215,7 +216,7 @@ There is one installer per tool, so nothing shadows anything on PATH:
 | cargo | Windows-side CLIs that winget lacks (just-lsp); toolchain from winget `Rustlang.Rustup` | `packages.windows.cargo` |
 | apt | base OS bits of the distro only | `packages.wsl.apt` |
 | Homebrew | general CLIs in WSL | `packages.wsl.brew` |
-| mise | version-pinned toolchains/CLIs (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI, fomo) | `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl` |
+| mise | version-pinned toolchains/CLIs (kubectl, helm, terraform, node, cplt, wsl2-ssh-agent, herdr, Copilot CLI, Playwright MCP, fomo) | `home/dot_config/mise/conf.d/00-chezmoi.toml.tmpl` |
 | native installer | Claude Code in WSL (updates itself) | `run_once_after_60-claude-code.sh.tmpl` |
 
 * winget entries are `{id, scope (user|machine, optional), override
@@ -419,7 +420,8 @@ expand to these. Starting an agent directly still bypasses the sandbox.
   outside. Anything else the agent writes in the project (Makefile, package.json
   scripts, `mise.toml`, `.envrc`, ...) is still yours to review.
 * **Read-only:** `/usr`, `/etc`, `/opt`, linuxbrew, mise/cargo/go/bun
-  toolchains, git config, `~/.local/bin`.
+  toolchains, git config, `~/.local/bin`, Playwright's browsers
+  (`~/.cache/ms-playwright`; install them outside).
 * **Hidden:** the rest of `$HOME` (an empty tmpfs, discarded on exit) and `/run`
   (no systemd bus, ssh-agent bridge or docker socket). The environment is
   cleared down to an allowlist.
@@ -714,6 +716,35 @@ to a newer arkenfox release, change the commit and checksum in
 closes; allow the sites to keep under Settings > Privacy & Security > Cookies
 and Site Data > Manage Exceptions, or set the override that is commented out
 in the overrides file.
+
+## PDF viewer (SumatraPDF)
+
+SumatraPDF comes from winget (user scope). Windows 11 protects the per-user
+default app for `.pdf` (the UCPD driver blocks scripts from writing it), so it
+is set once by hand: Settings > Apps > Default apps > SumatraPDF > `.pdf`, or
+`Start-Process 'ms-settings:defaultapps?registeredAppUser=SumatraPDF'`.
+`run_after_55-pdf-default` checks it on every apply and prints that command
+when another app owns `.pdf`.
+
+## Playwright (WSL)
+
+`run_onchange_after_65-playwright` sets Playwright up once for every repo:
+
+* the system libraries of Playwright's browsers (`playwright install-deps`), so
+  a repo only needs `npx playwright install`, which downloads the browser for
+  that repo's Playwright version into the shared `~/.cache/ms-playwright`;
+* Google Chrome stable (Google's .deb adds its apt repository, so topgrade's
+  apt step updates it), the browser Playwright MCP uses by default;
+* Playwright MCP (`npm:@playwright/mcp` in mise) registered with Claude Code
+  at user scope as `playwright`, headless. An existing `playwright` entry is
+  left alone; `claude mcp remove --scope user playwright` and re-run the
+  script to reset it.
+
+Inside agent-sandbox, `/opt` (Chrome) and `~/.cache/ms-playwright` are
+read-only: run `npx playwright install` outside first. Claude's own Bash
+sandbox only allows the domains in `sandbox.network.allowedDomains`, so
+Playwright tests run through Bash reach a local dev server but not the
+internet; the MCP server does not run in that sandbox.
 
 ## Docker (WSL, `features.docker`)
 

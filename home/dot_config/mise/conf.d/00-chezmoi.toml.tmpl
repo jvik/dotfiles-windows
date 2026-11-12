@@ -28,6 +28,11 @@ node = "lts"
 # GitHub Copilot CLI.
 "npm:@github/copilot" = "latest"
 
+# Playwright MCP server (`playwright-mcp`), registered with Claude Code at user
+# scope by run_onchange_after_65-playwright, which also installs the Google
+# Chrome it drives and the system libraries every Playwright browser needs.
+"npm:@playwright/mcp" = "latest"
+
 # Bridges the Windows ssh-agent pipe (\\.\pipe\openssh-ssh-agent, served by
 # Bitwarden Desktop) into WSL via powershell.exe. The x86_64 release asset is a
 # bare binary named just `wsl2-ssh-agent` (arm64: `wsl2-ssh-agent-arm64`), which

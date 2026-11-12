@@ -6,6 +6,7 @@
 # The agent CAN:
 #   - read and write the current project (git toplevel, or $PWD outside a repo)
 #   - read the system (/usr, /etc) and your toolchains (mise, brew, cargo, nix)
+#     and Playwright's browsers
 #   - read and write its own state dir (~/.claude, ~/.copilot, ~/.codex) so login and history persist
 #   - reach the network, since it has to talk to its API
 #
@@ -155,6 +156,9 @@ args=(
     --ro-bind-try "$HOME/.gitconfig" "$HOME/.gitconfig"
     --ro-bind-try "$HOME/.gitignore" "$HOME/.gitignore"
     --ro-bind-try "$HOME/.config/git" "$HOME/.config/git"
+    # Playwright's browsers. Read-only: the host runs them too, so install or
+    # update them outside (`npx playwright install` in the repo).
+    --ro-bind-try "$HOME/.cache/ms-playwright" "$HOME/.cache/ms-playwright"
 
     --bind "$project_dir" "$project_dir"
 )
