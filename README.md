@@ -505,7 +505,9 @@ to-text remaps). It holds sway-style shortcuts with mod = Win (the physical
 Left Alt key, see [Keyboard layout](#keyboard-layout)): `mod+Shift+Q` closes the window (Alt+F4), `mod+D`
 opens Flow Launcher (sends its Ctrl+Alt+Space hotkey, which
 `AppData/Roaming/FlowLauncher/Settings/modify_Settings.json` sets in Flow's
-settings; Flow reads it at start, so restart Flow after a change), `mod+Shift+F`
+settings; Flow reads it at start, so restart Flow after a change; the same file
+turns off "Hide Flow Launcher when focus is lost", since focus follows mouse
+would close Flow as soon as the pointer left it), `mod+Shift+F`
 starts a new Firefox window and `mod+Enter` a new WezTerm window. The WezTerm
 window comes from `~/.wezterm-new-window.ahk` (AutoHotkey), which asks the
 running WezTerm for a new window through `wezterm cli` and starts

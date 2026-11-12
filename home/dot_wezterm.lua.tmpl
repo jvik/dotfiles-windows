@@ -190,6 +190,9 @@ config.keys = {
 	-- harmless there and keeps the binding identical to the Linux one.
 	{ key = "c", mods = "ALT", action = wezterm.action.CopyTo("ClipboardAndPrimarySelection") },
 	{ key = "v", mods = "ALT", action = wezterm.action.PasteFrom("Clipboard") },
+	-- Shift+Enter reaches WSL as a plain Enter (ConPTY drops the modifier), so
+	-- send Esc+Enter (Alt+Enter) instead: a newline in Claude Code and fish.
+	{ key = "Enter", mods = "SHIFT", action = act.SendString("\x1b\r") },
 }
 
 -- table.insert(config.keys, {

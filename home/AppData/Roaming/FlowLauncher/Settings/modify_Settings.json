@@ -1,23 +1,37 @@
 {{- /* chezmoi:modify-template */ -}}
 {{- /*
-  Flow Launcher settings, merged rather than owned: only the hotkey is set
-  here, everything else stays Flow's (edit it in Flow's settings window).
+  Flow Launcher settings, merged rather than owned: only the keys in $wanted
+  are set here, everything else stays Flow's (edit it in Flow's settings
+  window).
 
   The hotkey is the target of the mod+d PowerToys remap
   (.chezmoidata/powertoys.yaml); keep the two in sync. Flow's default
   Alt+Space is taken by copilot-chat.ahk.
 
+  HideWhenDeactivated ("Hide Flow Launcher when focus is lost") is off: focus
+  follows mouse (run_after_60-focus-follows-mouse) hands focus to any window
+  the pointer crosses, which closed Flow. Now it stays open and gets focus
+  back when the pointer returns to it; Esc or mod+d closes it.
+
   Flow writes this file when it exits and reads it only at start, so after a
   change restart Flow (or the change is lost when it exits). Before Flow's
   first run there is no file; nothing is created then, so Flow writes its own
-  defaults and the next apply sets the hotkey.
+  defaults and the next apply sets these keys.
 */ -}}
-{{- $hotkey := "Ctrl + Alt + Space" -}}
+{{- /* Not sprig's merge: it treats false as empty and keeps Flow's true. */ -}}
+{{- $wanted := dict "Hotkey" "Ctrl + Alt + Space" "HideWhenDeactivated" false -}}
 {{- if .chezmoi.stdin -}}
 {{-   $current := .chezmoi.stdin | fromJson -}}
-{{-   if eq (get $current "Hotkey") $hotkey -}}
+{{-   $same := true -}}
+{{-   range $key, $value := $wanted -}}
+{{-     if not (and (hasKey $current $key) (eq (get $current $key) $value)) -}}
+{{-       $same = false -}}
+{{-       $_ := set $current $key $value -}}
+{{-     end -}}
+{{-   end -}}
+{{-   if $same -}}
 {{-     .chezmoi.stdin -}}
 {{-   else -}}
-{{ set $current "Hotkey" $hotkey | toPrettyJson }}
+{{ $current | toPrettyJson }}
 {{   end -}}
 {{- end -}}
