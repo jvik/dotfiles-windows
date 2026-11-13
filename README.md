@@ -682,7 +682,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
 (`startup_commands`) and kills it on exit, and a window rule keeps GlazeWM from
 tiling it. `home/dot_glzr/zebar/` holds `settings.json` (which widget starts)
 and the `topbar` widget pack: one bar per monitor, docked to the top edge so
-windows tile below it. Left: that monitor's workspaces (click to focus; the
+windows tile below it. Zebar claims that space only when it creates a bar, so
+connecting or disconnecting a monitor can leave a bar without it and windows
+on top of it; `restart-zebar-on-monitor-change.ps1` (a GlazeWM startup
+command) then restarts Zebar. Errors go to `%TEMP%\glazewm-restart-zebar.log`.
+Left: that monitor's workspaces (click to focus; the
 focused one is underlined in yellow), the binding mode, PAUSED, and on the
 focused monitor the tiling direction. Right: the current media session (click
 plays/pauses), keyboard layout, volume (click mutes, scroll changes it),

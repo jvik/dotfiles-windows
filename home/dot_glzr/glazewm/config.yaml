@@ -30,6 +30,9 @@ general:
     # Status bar (~/.glzr/zebar). It lives and dies with GlazeWM, since it
     # shows GlazeWM's workspaces and reserves screen space for itself.
     - 'shell-exec zebar'
+    # Restarts Zebar when connecting or disconnecting a monitor leaves its bar
+    # without reserved space, so windows do not cover it (see the script).
+    - 'shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/restart-zebar-on-monitor-change.ps1'
     # AutoHotkey helpers, one process (see helpers.ahk): tapping mod alone does
     # not open the Start menu, and Bitwarden stays above other windows (see
     # window_rules). It exits on its own after GlazeWM.
