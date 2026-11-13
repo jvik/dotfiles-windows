@@ -193,6 +193,10 @@ config.keys = {
 	-- Shift+Enter reaches WSL as a plain Enter (ConPTY drops the modifier), so
 	-- send Esc+Enter (Alt+Enter) instead: a newline in Claude Code and fish.
 	{ key = "Enter", mods = "SHIFT", action = act.SendString("\x1b\r") },
+	-- Ctrl+Enter is dropped to a plain Enter the same way, so Claude Code's
+	-- "send now" (chat:sendNow) only queued the message. Send its other
+	-- default key, the chord Ctrl+X Ctrl+S, instead.
+	{ key = "Enter", mods = "CTRL", action = act.SendString("\x18\x13") },
 }
 
 -- table.insert(config.keys, {
