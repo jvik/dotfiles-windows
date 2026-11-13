@@ -1,0 +1,105 @@
+{{- if .isWindows -}}
+# chezmoi: run_after_67-standby-hibernate (runs on every apply)
+#
+# Moves a sleeping laptop from Modern Standby (S0) into hibernate after a
+# while, on battery and on AC. Overnight standby has ended in a hung system on
+# resume here (the WSL2 VM, endpoint security and the dock all stay half alive
+# in S0, and the laptop ran hot enough for a Thermal Zone hibernate). Hibernate
+# powers everything off, so the next morning starts from a clean resume.
+#
+# This is the power plan setting Sleep > "Hibernate after", in seconds. It
+# needs hibernate itself to be on (powercfg /hibernate on, admin). powercfg can
+# usually change the plan value without admin; if it cannot, or hibernate is
+# off, the script prints the elevated commands. If a group policy sets the
+# value, it only warns. It never fails the apply.
+#
+# Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
+
+$ErrorActionPreference = 'Continue'
+
+# Minutes of standby before hibernating. Shorter on battery, where standby also
+# drains the battery in a bag.
+$desiredAcMinutes = 60
+$desiredDcMinutes = 30
+
+$sleepSubgroup = 'SUB_SLEEP'
+$hibernateAfterSetting = '9D7815A6-7EE4-497E-8888-515A05F02364'
+$policyKey = "HKLM:\SOFTWARE\Policies\Microsoft\Power\PowerSettings\$hibernateAfterSetting"
+$hibernateEnabledKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Power'
+
+$desiredAc = $desiredAcMinutes * 60
+$desiredDc = $desiredDcMinutes * 60
+
+function Write-Info([string]$Message) { Write-Host "[hibernate] $Message" }
+
+function Format-Minutes([long]$Seconds) {
+    if ($Seconds -eq 0) { return 'never' }
+    return ('{0} min' -f [math]::Round($Seconds / 60))
+}
+
+# powercfg's labels are localized. Lines ending in an 8-digit hex value are,
+# in order: minimum, maximum and increment of the range, then the current AC
+# and DC index, so the last two are the ones we want.
+function Get-PlanValues {
+    $output = & powercfg.exe /qh SCHEME_CURRENT $sleepSubgroup $hibernateAfterSetting 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $indexes = @($output | Select-String -Pattern '0x([0-9a-fA-F]{8})\s*$' | ForEach-Object {
+        [Convert]::ToInt64($_.Matches[0].Groups[1].Value, 16)
+    })
+    if ($indexes.Count -lt 2) { return $null }
+    return @{ Ac = $indexes[-2]; Dc = $indexes[-1] }
+}
+
+function Write-ElevatedFix([bool]$EnableHibernate) {
+    Write-Warning '[hibernate] Run this in an ELEVATED PowerShell (Start-Process powershell.exe -Verb RunAs opens one):'
+    Write-Host ''
+    if ($EnableHibernate) { Write-Host '    powercfg /hibernate on' }
+    Write-Host "    powercfg /setacvalueindex SCHEME_CURRENT $sleepSubgroup $hibernateAfterSetting $desiredAc"
+    Write-Host "    powercfg /setdcvalueindex SCHEME_CURRENT $sleepSubgroup $hibernateAfterSetting $desiredDc"
+    Write-Host '    powercfg /setactive SCHEME_CURRENT'
+    Write-Host ''
+}
+
+$policy = Get-ItemProperty -LiteralPath $policyKey -ErrorAction SilentlyContinue
+if ($null -ne $policy) {
+    Write-Warning ("[hibernate] A group policy sets 'Hibernate after' (AC {0}, DC {1}); it overrides the power plan." -f `
+        (Format-Minutes $policy.ACSettingIndex), (Format-Minutes $policy.DCSettingIndex))
+    exit 0
+}
+
+$hibernateEnabled = (Get-ItemProperty -LiteralPath $hibernateEnabledKey -Name 'HibernateEnabled' -ErrorAction SilentlyContinue).HibernateEnabled
+if ($hibernateEnabled -ne 1) {
+    Write-Warning '[hibernate] Hibernate is turned off on this machine, so standby never moves on to it.'
+    Write-ElevatedFix $true
+    exit 0
+}
+
+$current = Get-PlanValues
+if ($null -eq $current) {
+    Write-Warning '[hibernate] Could not read "Hibernate after" from the active power plan; skipped.'
+    exit 0
+}
+if (($current.Ac -eq $desiredAc) -and ($current.Dc -eq $desiredDc)) {
+    Write-Info ("Hibernate after standby: AC {0}, battery {1}: OK." -f (Format-Minutes $desiredAc), (Format-Minutes $desiredDc))
+    exit 0
+}
+
+& powercfg.exe /setacvalueindex SCHEME_CURRENT $sleepSubgroup $hibernateAfterSetting $desiredAc 2>$null
+$acExitCode = $LASTEXITCODE
+& powercfg.exe /setdcvalueindex SCHEME_CURRENT $sleepSubgroup $hibernateAfterSetting $desiredDc 2>$null
+$dcExitCode = $LASTEXITCODE
+# Re-activating the plan applies the changed values now instead of at the next plan switch.
+& powercfg.exe /setactive SCHEME_CURRENT 2>$null
+
+$after = Get-PlanValues
+if (($acExitCode -eq 0) -and ($dcExitCode -eq 0) -and ($null -ne $after) -and
+    ($after.Ac -eq $desiredAc) -and ($after.Dc -eq $desiredDc)) {
+    Write-Info ("Set hibernate after standby to AC {0}, battery {1} (was AC {2}, battery {3})." -f `
+        (Format-Minutes $desiredAc), (Format-Minutes $desiredDc), (Format-Minutes $current.Ac), (Format-Minutes $current.Dc))
+    exit 0
+}
+
+Write-Warning '[hibernate] Could not set "Hibernate after" in the active power plan.'
+Write-ElevatedFix $false
+exit 0
+{{ end -}}

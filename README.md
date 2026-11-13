@@ -557,6 +557,15 @@ are stopped by disarming the Bluetooth adapter, which stops every Bluetooth
 device. Disarming needs admin: when it fails, the script prints the elevated
 commands.
 
+`run_after_67-standby-hibernate` sets the active power plan's Sleep >
+"Hibernate after" so a sleeping laptop leaves Modern Standby for hibernate
+after 60 minutes on AC and 30 on battery (`$desired*Minutes` at the top of the
+script). Overnight standby here ended in a system that hung on resume and had
+to be powered off; hibernate turns everything off, WSL VM included, so the
+morning starts from a clean resume. It needs hibernate to be on; when it is
+off, or powercfg cannot write the plan, the script prints the elevated
+commands. When a group policy sets the value, it only warns.
+
 ## Window borders
 
 To show which window is active, as sway's focused border does,
