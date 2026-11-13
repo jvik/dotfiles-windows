@@ -649,6 +649,10 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   pauses focus follows mouse (for the session only, not in the registry), so
   Flow closes on a click outside it but not when the pointer crosses another
   window. It resumes as soon as another window gets focus.
+* Windows' virtual desktops are not used: `no-virtual-desktops.ahk` blocks
+  `Win+Ctrl+D` (new desktop; `mod+Ctrl+d` is one key from Flow Launcher's
+  `mod+d`) and `Win+Ctrl+Left/Right` (switch desktop). `Win+Ctrl+F4` still
+  closes the current desktop, moving its windows to the next one.
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more
