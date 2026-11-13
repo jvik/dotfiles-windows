@@ -603,7 +603,10 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   `bind_to_monitor` only takes a position-based index, so
   `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
   display through WMI and moves the workspace there whenever it is activated
-  or the monitors change. Errors go to `%TEMP%\glazewm-pin-laptop-workspace.log`.
+  or the monitors change. When an external monitor is connected, it also moves
+  every other workspace from the built-in display to the nearest external
+  monitor (no GlazeWM restart needed). Errors go to
+  `%TEMP%\glazewm-pin-laptop-workspace.log`.
 * Tapping mod alone does not open the Start menu (`Ctrl+Esc` still does).
   GlazeWM only prevents that after its own keybindings, so
   `suppress-start-menu.ahk` sends an unassigned key on every Win press. It

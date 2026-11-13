@@ -10,6 +10,8 @@
 # moves the workspace there whenever it is activated or the monitors change.
 # With an external monitor connected it also creates the workspace there if it
 # does not exist yet (GlazeWM only creates workspaces when they are focused).
+# And when an external monitor is connected, it moves every other workspace
+# off the built-in display to it, so the laptop shows only workspace 10.
 #
 # Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
 
@@ -134,17 +136,59 @@ function Update-WorkspacePlacement {
     }
 }
 
+# When an external monitor is connected, every workspace on the built-in
+# display except this one moves to it: the external monitor nearest the
+# built-in display, by their centres. Only on monitor_added, so a workspace
+# moved back to the laptop by hand stays there.
+function Move-OtherWorkspacesOffBuiltIn {
+    $displayIds = @(Get-BuiltInDisplayIds)
+    if ($displayIds.Count -eq 0) { return }
+
+    $monitors = Get-Monitors
+    $index = Find-BuiltInMonitorIndex $monitors $displayIds
+    if (($index -lt 0) -or ($monitors.Count -lt 2)) { return }
+
+    $builtIn = $monitors[$index]
+    $names = @($builtIn.children | Where-Object { $_.name -ne $WorkspaceName } | ForEach-Object { [string]$_.name })
+    foreach ($name in $names) {
+        # move-workspace steps one monitor at a time, so allow one step per monitor.
+        for ($step = 0; $step -lt $monitors.Count; $step++) {
+            $monitors = Get-Monitors
+            $index = Find-BuiltInMonitorIndex $monitors $displayIds
+            if ($index -lt 0) { return }
+            $builtIn = $monitors[$index]
+            $workspace = $builtIn.children | Where-Object { $_.name -eq $name } | Select-Object -First 1
+            if ($null -eq $workspace) { break }
+
+            $target = $monitors | Where-Object { $_.id -ne $builtIn.id } |
+                Sort-Object { [math]::Pow(($_.x + $_.width / 2) - ($builtIn.x + $builtIn.width / 2), 2) + [math]::Pow(($_.y + $_.height / 2) - ($builtIn.y + $builtIn.height / 2), 2) } |
+                Select-Object -First 1
+            $direction = Get-Direction $builtIn $target
+            Invoke-GlazeWM @('command', '--id', $workspace.id, 'move-workspace', '--direction', $direction) | Out-Null
+        }
+    }
+}
+
 function Write-Log([string]$Message) {
     try {
         Add-Content -LiteralPath $LogFile -Value ("{0:s} {1}" -f (Get-Date), $Message)
     } catch { }
 }
 
-function Invoke-Safely {
+# Placement first: with workspace 10 on the built-in display, moving the others
+# away does not leave it empty (GlazeWM would fill it with another workspace).
+function Invoke-Safely([string]$EventType) {
     try { Update-WorkspacePlacement } catch { Write-Log $_.Exception.Message }
+    if ($EventType -eq 'monitor_added') {
+        try { Move-OtherWorkspacesOffBuiltIn } catch { Write-Log $_.Exception.Message }
+    }
 }
 
-Invoke-Safely
-# Each event is one JSON line; which event it was does not matter.
-& glazewm sub --events @WatchedEvents | ForEach-Object { Invoke-Safely }
+Invoke-Safely ''
+# Each event is one JSON line.
+& glazewm sub --events @WatchedEvents | ForEach-Object {
+    $eventType = ''
+    try { $eventType = [string]($_ | ConvertFrom-Json).data.eventType } catch { }
+    Invoke-Safely $eventType
+}
 Write-Log ("glazewm sub ended (exit code {0})" -f $LASTEXITCODE)
