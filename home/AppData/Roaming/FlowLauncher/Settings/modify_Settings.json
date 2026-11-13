@@ -8,10 +8,11 @@
   (.chezmoidata/powertoys.yaml); keep the two in sync. Flow's default
   Alt+Space is taken by copilot-chat.ahk.
 
-  HideWhenDeactivated ("Hide Flow Launcher when focus is lost") is off: focus
-  follows mouse (run_after_60-focus-follows-mouse) hands focus to any window
-  the pointer crosses, which closed Flow. Now it stays open and gets focus
-  back when the pointer returns to it; Esc or mod+d closes it.
+  HideWhenDeactivated ("Hide Flow Launcher when focus is lost") is on, so a
+  click outside Flow closes it. Focus follows mouse
+  (run_after_60-focus-follows-mouse) would also take focus away on a mere
+  hover and close it, so the GlazeWM helper flow-launcher-focus.ahk pauses
+  focus follows mouse while Flow has focus.
 
   Flow writes this file when it exits and reads it only at start, so after a
   change restart Flow (or the change is lost when it exits). Before Flow's
@@ -19,7 +20,7 @@
   defaults and the next apply sets these keys.
 */ -}}
 {{- /* Not sprig's merge: it treats false as empty and keeps Flow's true. */ -}}
-{{- $wanted := dict "Hotkey" "Ctrl + Alt + Space" "HideWhenDeactivated" false -}}
+{{- $wanted := dict "Hotkey" "Ctrl + Alt + Space" "HideWhenDeactivated" true -}}
 {{- if .chezmoi.stdin -}}
 {{-   $current := .chezmoi.stdin | fromJson -}}
 {{-   $same := true -}}
