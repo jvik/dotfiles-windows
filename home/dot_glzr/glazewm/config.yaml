@@ -203,6 +203,8 @@ window_rules:
   - commands: ['set-floating --centered']
     match:
       - window_process: { equals: 'CalculatorApp' }
+      # Check Point Endpoint Security (VPN), opened from its tray icon.
+      - window_process: { equals: 'TrGUI' }
 
   # Dialogs that otherwise sink behind the tiled windows: float them, kept on
   # top. Unlike Bitwarden they stay on their workspace.

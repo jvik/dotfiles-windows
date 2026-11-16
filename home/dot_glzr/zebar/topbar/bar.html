@@ -57,7 +57,7 @@
       // Tray icons shown in the bar, in this order. Each pattern is tested
       // against "<process name> <tooltip>", since Signal and Bitwarden leave
       // the tooltip empty and tooltips can carry extra text.
-      const TRAY_APPS = [/signal/i, /slack/i, /teams/i, /bitwarden/i, /awake/i];
+      const TRAY_APPS = [/signal/i, /slack/i, /teams/i, /bitwarden/i, /awake/i, /trgui|check point/i];
 
       const providers = zebar.createProviderGroup({
         glazewm: { type: 'glazewm' },
@@ -169,7 +169,10 @@
         return `${trayOwners.get(trayHandle(trayIcon)) ?? ''} ${trayIcon.tooltip}`;
       }
 
-      // The apps' real tray icons; clicks are forwarded to the app.
+      // The apps' real tray icons; clicks are forwarded to the app. The image
+      // is set by syncTrayIcons, not in the markup: an animated icon (Check
+      // Point while connecting) gets a new iconUrl every frame, and rebuilding
+      // the <img> for each one blanks it until decoded, which flickers.
       function renderTray(systray) {
         if (!systray) return '';
         const icons = TRAY_APPS.flatMap(pattern =>
@@ -179,9 +182,20 @@
         const buttons = [...new Set(icons)].map(
           trayIcon =>
             `<button class="tray-icon" data-tray-id="${escapeHtml(trayIcon.id)}" title="${escapeHtml(trayIcon.tooltip)}">` +
-            `<img src="${escapeHtml(trayIcon.iconUrl)}" alt="" /></button>`,
+            `<img alt="" /></button>`,
         );
         return `<div class="module tray">${buttons.join('')}</div>`;
+      }
+
+      // Swaps the image of each tray button in place; the old frame stays
+      // visible until the new one has loaded.
+      function syncTrayIcons(systray) {
+        const iconUrls = new Map((systray?.icons ?? []).map(trayIcon => [trayIcon.id, trayIcon.iconUrl]));
+        for (const button of right.querySelectorAll('.tray-icon')) {
+          const image = button.querySelector('img');
+          const iconUrl = iconUrls.get(button.dataset.trayId);
+          if (iconUrl && image.getAttribute('src') !== iconUrl) image.src = iconUrl;
+        }
       }
 
       function renderMedia(media) {
@@ -388,6 +402,7 @@
             renderClock(output.day, output.time),
           ].join(''),
         );
+        syncTrayIcons(output.systray);
       }
 
       left.addEventListener('click', event => {
