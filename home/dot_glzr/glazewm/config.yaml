@@ -296,6 +296,10 @@ keybindings:
   - commands: ['focus --workspace 1']
     bindings: ['lwin+1']
   - commands: ['focus --workspace 2']
+  # Obsidian the same way, but pressing again minimizes it, as sway's
+  # scratchpad hid it.
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Obsidian -LaunchUri %userprofile%/AppData/Local/Programs/Obsidian/Obsidian.exe -Minimize']
+    bindings: ['lwin+shift+o']
     bindings: ['lwin+2']
   - commands: ['focus --workspace 3']
     bindings: ['lwin+3']

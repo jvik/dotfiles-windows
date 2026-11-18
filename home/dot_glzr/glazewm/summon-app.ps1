@@ -1,13 +1,15 @@
-# Brings an app's window to the focused workspace, or sends it home again. A
+# Brings an app's window to the focused workspace, or sends it away again. A
 # stand-in for sway's scratchpad, which GlazeWM lacks. config.yaml binds it to
-# lwin+shift+t (Teams) and lwin+shift+s (Slack).
+# lwin+shift+t (Teams), lwin+shift+s (Slack) and lwin+shift+o (Obsidian).
 #
-# - The window is on another workspace: move it to the focused one, focus it.
+# - The window is on another workspace, or minimized: move it to the focused
+#   one, restore it and focus it.
 # - It is already on the focused workspace: send it back to -HomeWorkspace
 #   (a window rule in config.yaml opens it there too). On the home workspace
-#   itself it is only focused.
-# - No window (not running, or closed to the tray): open -LaunchUri and bring
-#   the window here once GlazeWM manages it.
+#   itself it is only focused. With -Minimize it is minimized instead, which
+#   hides it the way sway's scratchpad did; -HomeWorkspace is then unused.
+# - No window (not running, or closed to the tray): open -LaunchUri (a URI or
+#   a program path) and bring the window here once GlazeWM manages it.
 #
 # -ProcessNames is a comma-separated list, since apps can go by more than one
 # name (new Teams is ms-teams, classic Teams is Teams).
@@ -18,7 +20,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProcessNames,
     [Parameter(Mandatory = $true)][string]$LaunchUri,
-    [string]$HomeWorkspace = '4'
+    [string]$HomeWorkspace = '4',
+    [switch]$Minimize
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,9 +49,9 @@ function Invoke-GlazeWM([string[]]$Arguments) {
     return $reply
 }
 
-# The first managed window of the app as { Id, Workspace }, or $null. Windows
-# can sit in nested split containers, so walk the whole tree under each
-# workspace. -contains compares case-insensitively.
+# The first managed window of the app as { Id, Workspace, State }, or $null.
+# Windows can sit in nested split containers, so walk the whole tree under
+# each workspace. -contains compares case-insensitively.
 function Find-AppWindow {
     $monitors = @((Invoke-GlazeWM @('query', 'monitors')).data.monitors)
     foreach ($monitor in $monitors) {
@@ -59,7 +62,11 @@ function Find-AppWindow {
                 $node = $stack.Pop()
                 if ($null -eq $node) { continue }
                 if (($null -ne $node.handle) -and ($Names -contains [string]$node.processName)) {
-                    return [pscustomobject]@{ Id = [string]$node.id; Workspace = [string]$workspace.name }
+                    return [pscustomobject]@{
+                        Id        = [string]$node.id
+                        Workspace = [string]$workspace.name
+                        State     = [string]$node.state.type
+                    }
                 }
                 foreach ($child in @($node.children)) { $stack.Push($child) }
             }
@@ -93,13 +100,23 @@ function Invoke-SummonApp {
     $window = Find-AppWindow
     if ($null -eq $window) {
         $window = Open-App
-    } elseif (($window.Workspace -eq $current) -and ($current -ne $HomeWorkspace)) {
-        Invoke-GlazeWM @('command', '--id', $window.Id, 'move', '--workspace', $HomeWorkspace) | Out-Null
-        return
+    } elseif (($window.Workspace -eq $current) -and ($window.State -ne 'minimized')) {
+        if ($Minimize) {
+            Invoke-GlazeWM @('command', '--id', $window.Id, 'set-minimized') | Out-Null
+            return
+        }
+        if ($current -ne $HomeWorkspace) {
+            Invoke-GlazeWM @('command', '--id', $window.Id, 'move', '--workspace', $HomeWorkspace) | Out-Null
+            return
+        }
     }
 
     if ($window.Workspace -ne $current) {
         Invoke-GlazeWM @('command', '--id', $window.Id, 'move', '--workspace', $current) | Out-Null
+    }
+    # Back to the state it had before (tiling or floating).
+    if ($window.State -eq 'minimized') {
+        Invoke-GlazeWM @('command', '--id', $window.Id, 'toggle-minimized') | Out-Null
     }
     Invoke-GlazeWM @('command', 'focus', '--container-id', $window.Id) | Out-Null
 }

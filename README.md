@@ -598,7 +598,9 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   and `mod+Shift+s` (Slack) run `summon-app.ps1`, which fetches the app to the
   current workspace and focuses it; pressing again sends it back to 4. If the
   app has no window (not running or in the tray) it is opened first. Errors go
-  to `%TEMP%\glazewm-summon-app.log`.
+  to `%TEMP%\glazewm-summon-app.log`. `mod+Shift+o` does the same for
+  Obsidian, except that pressing again minimizes it (sway's scratchpad hid
+  it), and the next press brings it back to whichever workspace you are on.
 * Workspace 10 (`mod+0`) stays on the laptop's built-in display.
   `bind_to_monitor` only takes a position-based index, so
   `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
