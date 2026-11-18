@@ -665,7 +665,11 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   records it by window handle in
   `%LOCALAPPDATA%\glazewm-window-workspaces.json` and moves the windows back
   when GlazeWM starts. Only the workspace comes back, not the split layout.
-  Errors go to `%TEMP%\glazewm-remember-workspaces.log`.
+  If GlazeWM crashed, the windows it had hidden on other workspaces stay
+  hidden (cloaked) and the next GlazeWM skips them, so the script first shows
+  them again and they go back to their workspace too. `mod+Shift+m` does the
+  same without a restart and also restores every minimized window, each on
+  its own workspace. Errors go to `%TEMP%\glazewm-remember-workspaces.log`.
 * An app opens on the workspace it was started from, even if you switch
   workspace while it loads (GlazeWM itself uses whichever workspace is focused
   when the window appears). `open-on-launch-workspace.ps1` (a GlazeWM startup

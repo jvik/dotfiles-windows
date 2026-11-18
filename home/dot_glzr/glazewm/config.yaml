@@ -359,3 +359,8 @@ keybindings:
   # Escape hatch: suspends tiling and every other binding until pressed again.
   - commands: ['wm-toggle-pause']
     bindings: ['lwin+shift+p']
+  # Brings back windows a crashed GlazeWM left hidden and restores every
+  # minimized window (as Windows' own Win+Shift+M does), each on its own
+  # workspace (see remember-workspaces.ps1).
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1 -ShowLostWindows']
+    bindings: ['lwin+shift+m']
