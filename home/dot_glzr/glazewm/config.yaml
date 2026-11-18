@@ -5,9 +5,9 @@
 # altwin:swap_lalt_lwin did, run_after_35-keyboard-scancode-map), so lwin here
 # is the physical Left Alt key.
 #
-# Not bindable: anything with lwin+l. Windows locks the screen on Win+L before
-# any program sees it, so "right" is the arrow key only (mod+l locks, which is
-# close to sway's mod+Ctrl+l).
+# Not bindable: lwin+l. Windows locks the screen on Win+L before any program
+# sees it, so "right" is the arrow key only. mod+Ctrl+l locks too, as in sway
+# (lock-screen.ahk).
 #
 # Left to other tools on purpose, so they keep working while GlazeWM is
 # paused: mod+Enter (WezTerm), mod+Shift+f (Firefox), mod+Shift+q (close) and

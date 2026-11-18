@@ -661,6 +661,8 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   `Win+Ctrl+D` (new desktop; `mod+Ctrl+d` is one key from Flow Launcher's
   `mod+d`) and `Win+Ctrl+Left/Right` (switch desktop). `Win+Ctrl+F4` still
   closes the current desktop, moving its windows to the next one.
+* `mod+Ctrl+l` locks the PC, as in sway (`lock-screen.ahk`), instead of
+  Windows' `Win+Ctrl+L` (Live Captions). `mod+l` alone locks too.
 * `mod+|` (the physical Alt + the key above Tab) toggles Windows Terminal's
   quake window, its built-in `win+sc(41)` binding. Windows Terminal only
   listens for it while it runs, so `wt-quake.ahk` starts it with the quake

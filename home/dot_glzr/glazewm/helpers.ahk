@@ -21,6 +21,7 @@ A_IconTip := "GlazeWM helpers"
 #Include %A_ScriptDir%\hidden-taskbar.ahk
 #Include %A_ScriptDir%\keep-dialog-focus.ahk
 #Include %A_ScriptDir%\no-virtual-desktops.ahk
+#Include %A_ScriptDir%\lock-screen.ahk
 #Include %A_ScriptDir%\wt-quake.ahk
 #Include %A_ScriptDir%\glazewm-ipc.ahk
 #Include %A_ScriptDir%\summon-apps.ahk
