@@ -507,7 +507,7 @@ opens Flow Launcher (sends its Ctrl+Alt+Space hotkey, which
 `AppData/Roaming/FlowLauncher/Settings/modify_Settings.json` sets in Flow's
 settings; Flow reads it at start, so restart Flow after a change; the same file
 turns on "Hide Flow Launcher when focus is lost", so a click outside closes
-Flow, and the GlazeWM helper `flow-launcher-focus.ahk` pauses focus follows
+Flow, and the GlazeWM helper `keep-dialog-focus.ahk` pauses focus follows
 mouse while Flow has focus, so a mere hover does not), `mod+Shift+F`
 starts a new Firefox window and `mod+Enter` a new WezTerm window. The WezTerm
 window comes from `~/.wezterm-new-window.ahk` (AutoHotkey), which asks the
@@ -650,10 +650,13 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   space; the helpers restore that setting and show the taskbar when they exit.
   It only touches Explorer's taskbar windows: Zebar's systray provider has a
   hidden window of the same class.
-* While Flow Launcher's search window has focus, `flow-launcher-focus.ahk`
-  pauses focus follows mouse (for the session only, not in the registry), so
-  Flow closes on a click outside it but not when the pointer crosses another
-  window. It resumes as soon as another window gets focus.
+* While a dialog or Flow Launcher's search window has focus,
+  `keep-dialog-focus.ahk` pauses focus follows mouse (for the session only,
+  not in the registry), so the pointer crossing a tiled window does not take
+  focus away and leave the dialog behind it (or close Flow; a click still
+  does). Dialogs are standard Win32 dialogs (class `#32770`), any modal
+  dialog (its owner window is disabled) and Windows' Open With dialog. It
+  resumes as soon as another window gets focus.
 * Windows' virtual desktops are not used: `no-virtual-desktops.ahk` blocks
   `Win+Ctrl+D` (new desktop; `mod+Ctrl+d` is one key from Flow Launcher's
   `mod+d`) and `Win+Ctrl+Left/Right` (switch desktop). `Win+Ctrl+F4` still

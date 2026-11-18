@@ -10,3 +10,6 @@
 # Replaced by summon-apps.ahk (Teams, Slack and Obsidian scratchpads).
 .glzr/glazewm/summon-app.ps1
 .glzr/glazewm/obsidian.ahk
+
+# Renamed to keep-dialog-focus.ahk when it grew to cover dialogs.
+.glzr/glazewm/flow-launcher-focus.ahk

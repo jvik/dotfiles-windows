@@ -19,7 +19,7 @@ A_IconTip := "GlazeWM helpers"
 #Include %A_ScriptDir%\signal.ahk
 #Include %A_ScriptDir%\outlook-reminders-on-top.ahk
 #Include %A_ScriptDir%\hidden-taskbar.ahk
-#Include %A_ScriptDir%\flow-launcher-focus.ahk
+#Include %A_ScriptDir%\keep-dialog-focus.ahk
 #Include %A_ScriptDir%\no-virtual-desktops.ahk
 #Include %A_ScriptDir%\wt-quake.ahk
 #Include %A_ScriptDir%\glazewm-ipc.ahk

@@ -11,7 +11,7 @@
   HideWhenDeactivated ("Hide Flow Launcher when focus is lost") is on, so a
   click outside Flow closes it. Focus follows mouse
   (run_after_60-focus-follows-mouse) would also take focus away on a mere
-  hover and close it, so the GlazeWM helper flow-launcher-focus.ahk pauses
+  hover and close it, so the GlazeWM helper keep-dialog-focus.ahk pauses
   focus follows mouse while Flow has focus.
 
   Flow writes this file when it exits and reads it only at start, so after a
