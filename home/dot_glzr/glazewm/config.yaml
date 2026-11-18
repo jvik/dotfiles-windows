@@ -296,10 +296,8 @@ keybindings:
     bindings: ['lwin+shift+t']
   - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Slack -LaunchUri slack://open']
     bindings: ['lwin+shift+s']
-  # Obsidian the same way, but pressing again minimizes it, as sway's
-  # scratchpad hid it.
-  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Obsidian -LaunchUri %userprofile%/AppData/Local/Programs/Obsidian/Obsidian.exe -Minimize']
-    bindings: ['lwin+shift+o']
+  # lwin+shift+o (Obsidian) works the same way but is bound in obsidian.ahk,
+  # which is much faster than this PowerShell script.
 
   # Workspaces. sway moved the window without following it.
   - commands: ['focus --recent-workspace']

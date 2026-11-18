@@ -1,13 +1,13 @@
-# Brings an app's window to the focused workspace, or sends it away again. A
+# Brings an app's window to the focused workspace, or sends it home again. A
 # stand-in for sway's scratchpad, which GlazeWM lacks. config.yaml binds it to
-# lwin+shift+t (Teams), lwin+shift+s (Slack) and lwin+shift+o (Obsidian).
+# lwin+shift+t (Teams) and lwin+shift+s (Slack). Obsidian (lwin+shift+o) has
+# a faster AutoHotkey version of the same idea, obsidian.ahk.
 #
 # - The window is on another workspace, or minimized: move it to the focused
 #   one, restore it and focus it.
 # - It is already on the focused workspace: send it back to -HomeWorkspace
 #   (a window rule in config.yaml opens it there too). On the home workspace
-#   itself it is only focused. With -Minimize it is minimized instead, which
-#   hides it the way sway's scratchpad did; -HomeWorkspace is then unused.
+#   itself it is only focused.
 # - No window (not running, or closed to the tray): open -LaunchUri (a URI or
 #   a program path) and bring the window here once GlazeWM manages it.
 #
@@ -20,8 +20,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$ProcessNames,
     [Parameter(Mandatory = $true)][string]$LaunchUri,
-    [string]$HomeWorkspace = '4',
-    [switch]$Minimize
+    [string]$HomeWorkspace = '4'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -100,15 +99,9 @@ function Invoke-SummonApp {
     $window = Find-AppWindow
     if ($null -eq $window) {
         $window = Open-App
-    } elseif (($window.Workspace -eq $current) -and ($window.State -ne 'minimized')) {
-        if ($Minimize) {
-            Invoke-GlazeWM @('command', '--id', $window.Id, 'set-minimized') | Out-Null
-            return
-        }
-        if ($current -ne $HomeWorkspace) {
-            Invoke-GlazeWM @('command', '--id', $window.Id, 'move', '--workspace', $HomeWorkspace) | Out-Null
-            return
-        }
+    } elseif (($window.Workspace -eq $current) -and ($window.State -ne 'minimized') -and ($current -ne $HomeWorkspace)) {
+        Invoke-GlazeWM @('command', '--id', $window.Id, 'move', '--workspace', $HomeWorkspace) | Out-Null
+        return
     }
 
     if ($window.Workspace -ne $current) {
