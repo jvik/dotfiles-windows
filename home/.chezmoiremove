@@ -6,3 +6,7 @@
 
 # Slack-only first version of summon-app.ps1.
 .glzr/glazewm/summon-slack.ps1
+
+# Replaced by summon-apps.ahk (Teams, Slack and Obsidian scratchpads).
+.glzr/glazewm/summon-app.ps1
+.glzr/glazewm/obsidian.ahk

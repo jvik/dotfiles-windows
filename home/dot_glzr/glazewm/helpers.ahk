@@ -23,7 +23,7 @@ A_IconTip := "GlazeWM helpers"
 #Include %A_ScriptDir%\no-virtual-desktops.ahk
 #Include %A_ScriptDir%\wt-quake.ahk
 #Include %A_ScriptDir%\glazewm-ipc.ahk
-#Include %A_ScriptDir%\obsidian.ahk
+#Include %A_ScriptDir%\summon-apps.ahk
 
 ExitWhenGlazeWmIsGone() {
     if !ProcessExist("glazewm.exe")

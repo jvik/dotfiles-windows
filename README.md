@@ -595,15 +595,15 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
 * sway's tabbed/stacking layouts, sticky windows and scratchpad have no
   GlazeWM equivalent.
 * Teams and Slack live on workspace 4 (a window rule). `mod+Shift+t` (Teams)
-  and `mod+Shift+s` (Slack) run `summon-app.ps1`, which fetches the app to the
-  current workspace and focuses it; pressing again sends it back to 4. If the
-  app has no window (not running or in the tray) it is opened first. Errors go
-  to `%TEMP%\glazewm-summon-app.log`. `mod+Shift+o` does the same for
-  Obsidian, except that pressing it while Obsidian has focus minimizes it
-  (sway's scratchpad hid it). That one is `obsidian.ahk` instead, for speed:
-  it runs in the AutoHotkey helpers and talks to GlazeWM over its IPC
-  WebSocket (`glazewm-ipc.ahk`, a few ms per call), where `summon-app.ps1`
-  pays about 1.7 s to start PowerShell and 400 ms per `glazewm` CLI call.
+  and `mod+Shift+s` (Slack) fetch the app to the current workspace and focus
+  it; pressing again sends it back to 4. If the app has no window (not
+  running or in the tray) it is opened first and fetched once it appears.
+  `mod+Shift+o` does the same for Obsidian, except that pressing it while
+  Obsidian has focus minimizes it (sway's scratchpad hid it). All three are
+  `summon-apps.ahk`, which runs in the AutoHotkey helpers and talks to
+  GlazeWM over its IPC WebSocket (`glazewm-ipc.ahk`, a few ms per message).
+  The `glazewm` CLI from PowerShell took about 3 s per press (1.7 s to start
+  PowerShell, 400 ms per CLI call).
 * Workspace 10 (`mod+0`) stays on the laptop's built-in display.
   `bind_to_monitor` only takes a position-based index, so
   `pin-laptop-workspace.ps1` (a GlazeWM startup command) finds the built-in
