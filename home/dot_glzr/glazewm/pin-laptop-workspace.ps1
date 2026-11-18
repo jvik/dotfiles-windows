@@ -140,32 +140,39 @@ function Update-WorkspacePlacement {
 # display except this one moves to it: the external monitor nearest the
 # built-in display, by their centres. Only on monitor_added, so a workspace
 # moved back to the laptop by hand stays there.
+#
+# The external monitor also drops out while the PC is locked with the screen
+# off, so on unlock this moves everything back. Each glazewm CLI call takes
+# about 300 ms, so the moves are started all at once rather than one by one
+# with a query in between (that took seconds, one workspace at a time). Each
+# move names its workspace by id, so their order does not matter.
 function Move-OtherWorkspacesOffBuiltIn {
     $displayIds = @(Get-BuiltInDisplayIds)
     if ($displayIds.Count -eq 0) { return }
 
+    # move-workspace steps one monitor at a time, so allow one round per monitor.
     $monitors = Get-Monitors
-    $index = Find-BuiltInMonitorIndex $monitors $displayIds
-    if (($index -lt 0) -or ($monitors.Count -lt 2)) { return }
+    for ($round = 0; $round -lt $monitors.Count; $round++) {
+        $index = Find-BuiltInMonitorIndex $monitors $displayIds
+        if (($index -lt 0) -or ($monitors.Count -lt 2)) { return }
 
-    $builtIn = $monitors[$index]
-    $names = @($builtIn.children | Where-Object { $_.name -ne $WorkspaceName } | ForEach-Object { [string]$_.name })
-    foreach ($name in $names) {
-        # move-workspace steps one monitor at a time, so allow one step per monitor.
-        for ($step = 0; $step -lt $monitors.Count; $step++) {
-            $monitors = Get-Monitors
-            $index = Find-BuiltInMonitorIndex $monitors $displayIds
-            if ($index -lt 0) { return }
-            $builtIn = $monitors[$index]
-            $workspace = $builtIn.children | Where-Object { $_.name -eq $name } | Select-Object -First 1
-            if ($null -eq $workspace) { break }
+        $builtIn = $monitors[$index]
+        $workspaces = @($builtIn.children | Where-Object { $_.name -ne $WorkspaceName })
+        if ($workspaces.Count -eq 0) { return }
 
-            $target = $monitors | Where-Object { $_.id -ne $builtIn.id } |
-                Sort-Object { [math]::Pow(($_.x + $_.width / 2) - ($builtIn.x + $builtIn.width / 2), 2) + [math]::Pow(($_.y + $_.height / 2) - ($builtIn.y + $builtIn.height / 2), 2) } |
-                Select-Object -First 1
-            $direction = Get-Direction $builtIn $target
-            Invoke-GlazeWM @('command', '--id', $workspace.id, 'move-workspace', '--direction', $direction) | Out-Null
-        }
+        $target = $monitors | Where-Object { $_.id -ne $builtIn.id } |
+            Sort-Object { [math]::Pow(($_.x + $_.width / 2) - ($builtIn.x + $builtIn.width / 2), 2) + [math]::Pow(($_.y + $_.height / 2) - ($builtIn.y + $builtIn.height / 2), 2) } |
+            Select-Object -First 1
+        $direction = Get-Direction $builtIn $target
+
+        $moves = @(foreach ($workspace in $workspaces) {
+            Start-Process glazewm -WindowStyle Hidden -PassThru -ArgumentList @(
+                'command', '--id', $workspace.id, 'move-workspace', '--direction', $direction)
+        })
+        $moves | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue
+
+        # A move that failed shows up here, still on the built-in display.
+        $monitors = Get-Monitors
     }
 }
 
