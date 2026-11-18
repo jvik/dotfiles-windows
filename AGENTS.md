@@ -28,6 +28,17 @@ apply as its last script. The goal is safe, minimal, and idempotent changes.
    - Comments explain *why* (a non-obvious constraint or workaround), not *what*
      the next line does.
    - A reader unfamiliar with the file should be able to follow it top to bottom.
+6. **Every machine change is config as code**
+   - Any change to machine state (registry, powercfg, services, scheduled
+     tasks, app settings, installed packages, WSL config) goes into this repo
+     as a managed file or an idempotent chezmoi script, then reaches the
+     machine through `chezmoi apply`. Never fix the live system with a one-off
+     command, not even "just to try it" or "while the script is written".
+   - One-off commands are allowed only to **read** state: inspect the current
+     value, event logs, or the effect of an apply, so you can write the
+     config-as-code fix.
+   - If a change needs admin, the script tries without it and prints the exact
+     elevated command (see the Scripts section); it never elevates silently.
 
 ## Repository-specific rules
 
