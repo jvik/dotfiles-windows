@@ -178,6 +178,13 @@ window_rules:
       # sticky the same way.
       - window_process: { equals: 'Signal' }
         window_class: { equals: 'Chrome_WidgetWin_1' }
+      # Windows Terminal's quake window (mod+|, see wt-quake.ahk). Windows
+      # Terminal places it at the top of the monitor on every summon, so a
+      # tiled one flashes there before GlazeWM moves it. It has the same
+      # process, class and (shell-set) title as a normal Windows Terminal
+      # window, and Windows Terminal is only used for the quake window
+      # (WezTerm is the terminal), so this ignores all of them.
+      - window_process: { equals: 'WindowsTerminal' }
 
       # New Outlook's reminders window, floating and sticky the same way;
       # outlook-reminders-on-top.ahk keeps it above the tiled windows. It has
@@ -289,6 +296,10 @@ keybindings:
     bindings: ['lwin+shift+t']
   - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Slack -LaunchUri slack://open']
     bindings: ['lwin+shift+s']
+  # Obsidian the same way, but pressing again minimizes it, as sway's
+  # scratchpad hid it.
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Obsidian -LaunchUri %userprofile%/AppData/Local/Programs/Obsidian/Obsidian.exe -Minimize']
+    bindings: ['lwin+shift+o']
 
   # Workspaces. sway moved the window without following it.
   - commands: ['focus --recent-workspace']
@@ -296,10 +307,6 @@ keybindings:
   - commands: ['focus --workspace 1']
     bindings: ['lwin+1']
   - commands: ['focus --workspace 2']
-  # Obsidian the same way, but pressing again minimizes it, as sway's
-  # scratchpad hid it.
-  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/summon-app.ps1 -ProcessNames Obsidian -LaunchUri %userprofile%/AppData/Local/Programs/Obsidian/Obsidian.exe -Minimize']
-    bindings: ['lwin+shift+o']
     bindings: ['lwin+2']
   - commands: ['focus --workspace 3']
     bindings: ['lwin+3']
@@ -352,6 +359,11 @@ keybindings:
   # mod+Ctrl+Shift+c reloaded, mod+Shift+e exited.
   - commands: ['wm-redraw']
     bindings: ['lwin+shift+c']
+  # Brings back windows a crashed GlazeWM left hidden and restores every
+  # minimized window (as Windows' own Win+Shift+M does), each on its own
+  # workspace (see remember-workspaces.ps1).
+  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1 -ShowLostWindows']
+    bindings: ['lwin+shift+m']
   - commands: ['wm-reload-config']
     bindings: ['lwin+ctrl+shift+c']
   - commands: ['wm-exit']
@@ -359,8 +371,3 @@ keybindings:
   # Escape hatch: suspends tiling and every other binding until pressed again.
   - commands: ['wm-toggle-pause']
     bindings: ['lwin+shift+p']
-  # Brings back windows a crashed GlazeWM left hidden and restores every
-  # minimized window (as Windows' own Win+Shift+M does), each on its own
-  # workspace (see remember-workspaces.ps1).
-  - commands: ['shell-exec --hide-window powershell.exe -NoProfile -ExecutionPolicy Bypass -File %userprofile%/.glzr/glazewm/remember-workspaces.ps1 -ShowLostWindows']
-    bindings: ['lwin+shift+m']

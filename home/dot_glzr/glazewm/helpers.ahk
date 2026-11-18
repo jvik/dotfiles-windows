@@ -21,6 +21,7 @@ A_IconTip := "GlazeWM helpers"
 #Include %A_ScriptDir%\hidden-taskbar.ahk
 #Include %A_ScriptDir%\flow-launcher-focus.ahk
 #Include %A_ScriptDir%\no-virtual-desktops.ahk
+#Include %A_ScriptDir%\wt-quake.ahk
 
 ExitWhenGlazeWmIsGone() {
     if !ProcessExist("glazewm.exe")

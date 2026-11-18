@@ -655,6 +655,15 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   `Win+Ctrl+D` (new desktop; `mod+Ctrl+d` is one key from Flow Launcher's
   `mod+d`) and `Win+Ctrl+Left/Right` (switch desktop). `Win+Ctrl+F4` still
   closes the current desktop, moving its windows to the next one.
+* `mod+|` (the physical Alt + the key above Tab) toggles Windows Terminal's
+  quake window, its built-in `win+sc(41)` binding. Windows Terminal only
+  listens for it while it runs, so `wt-quake.ahk` starts it with the quake
+  window (`wt.exe -w _quake`) when it is not running, and otherwise lets the
+  key through. A window rule ignores Windows Terminal, so the quake window
+  drops down over the tiles instead of flashing at the top before GlazeWM
+  tiles it. That rule matches every Windows Terminal window, since GlazeWM
+  cannot tell the quake window apart; WezTerm is the terminal for everything
+  else.
 * The AutoHotkey (v2) helpers run as one process with one tray icon:
   `helpers.ahk` `#Include`s each of them. GlazeWM starts it on startup and on a
   config reload, and it exits when GlazeWM does. A new helper is one more
