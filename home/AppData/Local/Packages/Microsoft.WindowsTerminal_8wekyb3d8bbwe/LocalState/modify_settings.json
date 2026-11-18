@@ -1,0 +1,30 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  Windows Terminal's settings.json, merged rather than owned: the settings UI
+  keeps writing it, so this only makes sure the entries below are there.
+
+  The quake window (mod+|, see .glzr/glazewm/wt-quake.ahk) opens on the monitor
+  under the mouse. Windows Terminal's own binding for that key (quakeMode)
+  opens it on the monitor of the focused window instead ("monitor":
+  "toCurrent"). With focus follows mouse that is often the other monitor; the
+  window then also loses focus, and the hotkey only hides a focused quake
+  window, so it showed it again instead of hiding it. globalSummon with the
+  name "_quake" is the same quake window, with "toMouse".
+
+  Our action and binding replace any entry with the same id or keys. When
+  nothing changes, the file is passed through byte for byte. Windows Terminal
+  allows comments in the file, which fromJson does not: remove them if apply
+  fails here.
+*/ -}}
+{{- $action := dict "id" "User.quakeToMouse" "command" (dict "action" "globalSummon" "name" "_quake" "monitor" "toMouse" "dropdownDuration" 200) -}}
+{{- $binding := dict "id" "User.quakeToMouse" "keys" "win+sc(41)" -}}
+{{- $current := .chezmoi.stdin | default "{}" | fromJson -}}
+{{- $query := `.[0] as $a | .[1] as $b | .[2]
+  | .actions = ([.actions[]? | select(.id != $a.id)] + [$a])
+  | .keybindings = ([.keybindings[]? | select(.id != $b.id and .keys != $b.keys)] + [$b])` -}}
+{{- $merged := list $action $binding $current | jq $query | first -}}
+{{- if eq (toJson $current) (toJson $merged) -}}
+{{- .chezmoi.stdin -}}
+{{- else -}}
+{{ $merged | toPrettyJson }}
+{{ end -}}

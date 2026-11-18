@@ -1,4 +1,5 @@
-; Shared by the floating drop-downs (copilot-chat.ahk, signal.ahk): shows a
+; Shared by the floating drop-downs (copilot-chat.ahk, signal.ahk; the
+; monitor helpers also by wt-quake.ahk): shows a
 ; window centred on the monitor under the mouse, always on top, and focused.
 ; The window must be ignored by GlazeWM (window_rules in config.yaml), or it
 ; tiles it again.
@@ -21,6 +22,11 @@ ShowDropDown(hwnd, width, height) {
 MonitorUnderMouse() {
     CoordMode "Mouse", "Screen"
     MouseGetPos &x, &y
+    return MonitorAt(x, y)
+}
+
+; The monitor containing the screen point, or the primary one.
+MonitorAt(x, y) {
     loop MonitorGetCount() {
         MonitorGet A_Index, &l, &t, &r, &b
         if (x >= l && x < r && y >= t && y < b)
