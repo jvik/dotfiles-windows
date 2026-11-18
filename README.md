@@ -689,7 +689,9 @@ and the `topbar` widget pack: one bar per monitor, docked to the top edge so
 windows tile below it. Zebar claims that space only when it creates a bar, so
 connecting or disconnecting a monitor can leave a bar without it and windows
 on top of it; `restart-zebar-on-monitor-change.ps1` (a GlazeWM startup
-command) then restarts Zebar. Errors go to `%TEMP%\glazewm-restart-zebar.log`.
+command) then restarts Zebar, but gives a Zebar that is still starting 90
+seconds to dock first (after a resume it can take 30-40). Errors go to
+`%TEMP%\glazewm-restart-zebar.log`.
 Left: that monitor's workspaces (click to focus; the
 focused one is underlined in yellow), the binding mode, PAUSED, and on the
 focused monitor the tiling direction. Right: the current media session (click

@@ -38,7 +38,9 @@ general:
     # window_rules). It exits on its own after GlazeWM.
     - 'shell-exec %userprofile%/.glzr/glazewm/helpers.ahk'
   shutdown_commands:
-    - 'shell-exec taskkill /IM zebar.exe /F'
+    # /T: also the processes Zebar started, so none keeps its port open for
+    # the next Zebar (see restart-zebar-on-monitor-change.ps1).
+    - 'shell-exec taskkill /IM zebar.exe /T /F'
   # Reload (lwin+ctrl+shift+c) instead of restarting GlazeWM: a restart loses
   # which workspace each window was on, a reload keeps it. This re-runs the
   # AHK helpers so edits to them apply too (#SingleInstance Force replaces

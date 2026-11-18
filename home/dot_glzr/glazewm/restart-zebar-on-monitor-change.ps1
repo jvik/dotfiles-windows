@@ -12,6 +12,13 @@
 # Only restarts when a monitor's work area really starts at its top edge, so
 # the monitor_updated event from Zebar's own claim does not restart it again.
 #
+# A restart itself changes the work areas twice (the old bars go, the new ones
+# claim their space), and each change is another event to check. Zebar docks
+# its bars one by one as it creates them, which after resuming from hibernate
+# took 30-40 seconds; restarting it whenever a check found a bar not docked
+# yet killed every new Zebar before it was done, in a loop. So a Zebar that is
+# still starting gets until $StartupSeconds after its start to dock.
+#
 # Keep this file pure ASCII and Windows PowerShell 5.1 compatible.
 
 $ErrorActionPreference = 'Stop'
@@ -21,6 +28,8 @@ $LogFile = Join-Path $env:TEMP 'glazewm-restart-zebar.log'
 # Zebar creates and docks the bar of a newly connected monitor on its own;
 # give it this long before deciding it did not.
 $SettleSeconds = 3
+$StartupSeconds = 90
+$PollSeconds = 1
 
 # The CLI can exit 0 for a failed command; the reply's `success` says so.
 function Invoke-GlazeWM([string[]]$Arguments) {
@@ -47,18 +56,33 @@ function Write-Log([string]$Message) {
     } catch { }
 }
 
-function Repair-Zebar {
-    # Not running: it was closed on purpose, or GlazeWM is shutting down.
-    if (-not (Get-Process zebar -ErrorAction SilentlyContinue)) { return }
-
-    Start-Sleep -Seconds $SettleSeconds
-    $undocked = @(Get-UndockedMonitors)
-    if ($undocked.Count -eq 0) { return }
-
-    Write-Log ("no bar space on {0}; restarting Zebar" -f (($undocked | ForEach-Object { $_.devicePath }) -join ', '))
-    Stop-Process -Name zebar -Force -ErrorAction SilentlyContinue
+# taskkill /T also ends the processes Zebar started. One it was starting for
+# the bar (tray-owner.ps1) when it was killed outlived it, suspended, and kept
+# Zebar's widget server port (127.0.0.1:6124) open; every later Zebar then
+# docked empty bars whose page never loaded.
+function Restart-Zebar([object[]]$UndockedMonitors) {
+    Write-Log ("no bar space on {0}; restarting Zebar" -f (($UndockedMonitors | ForEach-Object { $_.devicePath }) -join ', '))
+    & taskkill /IM zebar.exe /T /F | Out-Null
     Wait-Process -Name zebar -Timeout 10 -ErrorAction SilentlyContinue
     Start-Process zebar
+}
+
+function Repair-Zebar {
+    # Not running: it was closed on purpose, or GlazeWM is shutting down.
+    $zebar = Get-Process zebar -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $zebar) { return }
+
+    Start-Sleep -Seconds $SettleSeconds
+    while ($true) {
+        $undocked = @(Get-UndockedMonitors)
+        if ($undocked.Count -eq 0) { return }
+        if ($zebar.HasExited) { return }
+        if (((Get-Date) - $zebar.StartTime).TotalSeconds -ge $StartupSeconds) {
+            Restart-Zebar $undocked
+            return
+        }
+        Start-Sleep -Seconds $PollSeconds
+    }
 }
 
 function Invoke-Safely {
