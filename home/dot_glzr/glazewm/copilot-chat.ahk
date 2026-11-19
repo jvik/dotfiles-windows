@@ -10,8 +10,10 @@
 ; The window is M365 Copilot Chat (work account, so work data stays protected)
 ; in an Edge app window (--app: no tabs or address bar). GlazeWM ignores it
 ; (window_rules in config.yaml), so it never tiles and, like Bitwarden, shows
-; up on whichever workspace you are on. COPILOT_TITLE must match the
-; window_title of that rule.
+; up on whichever workspace you are on. The window is titled after the
+; conversation, so the rule ignores every Edge app window rather than
+; matching "Copilot": GlazeWM checks it again on every WinShow, and a
+; conversation name would make it tile.
 ;
 ; The hotkey takes Alt+Space from the window menu (and from PowerToys Run or
 ; the Copilot app, if either uses it). Flow Launcher (mod+d) is moved to
@@ -21,9 +23,8 @@
 
 COPILOT_URL := "https://m365.cloud.microsoft/chat"
 ; Edge browser windows are titled "<page> - <profile> - Microsoft Edge", an
-; app window only "<page>". No "-" in the title therefore rules out browser
-; windows, including one with a Copilot tab open.
-COPILOT_TITLE := "^[^-]*Copilot[^-]*$"
+; app window only "<page>". Keep in sync with the window rule in config.yaml.
+EDGE_BROWSER_TITLE := "Microsoft Edge$"
 EDGE_WINDOWS := "ahk_exe msedge.exe ahk_class Chrome_WidgetWin_1"
 CHAT_W := 0.5  ; half the monitor's width (see ShowDropDown)
 CHAT_H := 900
@@ -45,26 +46,32 @@ ToggleCopilotChat() {
         ShowDropDown(hwnd, CHAT_W, CHAT_H)
 }
 
+; Once the helpers restart, the window is found again by its title: an Edge
+; app window, preferably one with "Copilot" in the title (a new chat), else
+; any (a named conversation).
 FindCopilotChat() {
     global copilotHwnd
     if copilotHwnd && WinExist("ahk_id " copilotHwnd " " EDGE_WINDOWS)
         return copilotHwnd
     copilotHwnd := 0
+    anyAppWindow := 0
     for hwnd in WinGetList(EDGE_WINDOWS) {
-        try {
-            if RegExMatch(WinGetTitle(hwnd), COPILOT_TITLE) {
-                copilotHwnd := hwnd
-                break
-            }
-        }
+        try title := WinGetTitle(hwnd)
+        catch
+            continue
+        if !IsEdgeAppTitle(title)
+            continue
+        if InStr(title, "Copilot")
+            return copilotHwnd := hwnd
+        if !anyAppWindow
+            anyAppWindow := hwnd
     }
-    return copilotHwnd
+    return copilotHwnd := anyAppWindow
 }
 
-; Opens the app window and takes the first new Edge window that is not a
-; browser window (Edge may restore its browser windows when it starts). It is
-; shown once its title matches COPILOT_TITLE, i.e. once GlazeWM has let go of
-; it; on a sign-in page that never happens, so it is shown on the timeout.
+; Opens the app window and takes the first new visible Edge window that is
+; not a browser window (Edge may restore its browser windows when it starts).
+; GlazeWM ignores it from the start, sign-in page included.
 LaunchCopilotChat() {
     global copilotHwnd
     existing := Map()
@@ -73,40 +80,29 @@ LaunchCopilotChat() {
 
     Run "msedge.exe --app=" COPILOT_URL
     deadline := A_TickCount + LAUNCH_TIMEOUT_MS
-    while (A_TickCount < deadline) {
+    while !copilotHwnd && (A_TickCount < deadline) {
         Sleep 250
-        if !copilotHwnd {
-            for hwnd in WinGetList(EDGE_WINDOWS) {
-                if !existing.Has(hwnd) && IsEdgeAppWindow(hwnd) {
-                    copilotHwnd := hwnd
-                    break
-                }
-            }
-            continue
-        }
-        try {
-            if RegExMatch(WinGetTitle(copilotHwnd), COPILOT_TITLE) {
-                ; Give GlazeWM's ignore rule a moment, or it re-tiles the
-                ; window after it is placed.
-                Sleep 300
+        for hwnd in WinGetList(EDGE_WINDOWS) {
+            if !existing.Has(hwnd) && IsEdgeAppWindow(hwnd) {
+                copilotHwnd := hwnd
                 break
             }
-        } catch {
-            return  ; closed while loading
         }
     }
+    ; Give GlazeWM's ignore rule a moment, or it re-tiles the window after it
+    ; is placed.
+    Sleep 300
     if copilotHwnd && WinExist(copilotHwnd)
         ShowDropDown(copilotHwnd, CHAT_W, CHAT_H)
 }
 
 IsEdgeAppWindow(hwnd) {
-    try {
-        if !DllCall("IsWindowVisible", "Ptr", hwnd)
-            return false
-        title := WinGetTitle(hwnd)
-        return title != "" && !RegExMatch(title, "Edge$")
-    }
+    try return DllCall("IsWindowVisible", "Ptr", hwnd) && IsEdgeAppTitle(WinGetTitle(hwnd))
     return false
+}
+
+IsEdgeAppTitle(title) {
+    return title != "" && !RegExMatch(title, EDGE_BROWSER_TITLE)
 }
 
 ; ShowDropDown makes the window always on top, but that does not last: like

@@ -169,11 +169,14 @@ window_rules:
 
       # Copilot Chat, toggled with Alt+Space (physical Win+Space) by
       # copilot-chat.ahk: an Edge app window, floating and sticky the same
-      # way. Browser windows have " - " in the title, the app window does not.
-      # The regex must match COPILOT_TITLE in copilot-chat.ahk.
+      # way. Its title is the conversation's name, so the rule matches every
+      # Edge app window (and DevTools): browser windows end in "Microsoft
+      # Edge", app windows do not. An empty title (a window still being
+      # created) is left alone. Keep in sync with EDGE_BROWSER_TITLE in
+      # copilot-chat.ahk.
       - window_process: { equals: 'msedge' }
         window_class: { equals: 'Chrome_WidgetWin_1' }
-        window_title: { regex: '^[^-]*Copilot[^-]*$' }
+        window_title: { not_regex: 'Microsoft Edge$|^$' }
       # Signal Desktop, toggled with mod+Shift+n by signal.ahk; floating and
       # sticky the same way.
       - window_process: { equals: 'Signal' }

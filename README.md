@@ -634,8 +634,9 @@ reloads the config. The focused window gets sway's gruvbox yellow border.
   window rule ignores, so it floats on every workspace. The hotkey opens it if
   needed, shows it centred on the monitor under the mouse, always on top, and
   hides it again when pressed while it has focus. It takes over Alt+Space from
-  the window menu. If the window ever tiles instead, its title does not match
-  `COPILOT_TITLE` (keep it in sync with the rule in `config.yaml`).
+  the window menu. The window is titled after the conversation, so the rule
+  matches every Edge app window (title not ending in "Microsoft Edge"); other
+  Edge app windows and detached DevTools float too, browser windows still tile.
 * `mod+Shift+n` (the physical Alt+Shift+N) toggles Signal Desktop the same way
   (`signal.ahk`): it starts Signal if needed, shows it centred and always on
   top on the monitor under the mouse, and closes it to the tray when pressed
